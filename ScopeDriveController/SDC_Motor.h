@@ -9,13 +9,14 @@
 #ifndef SDC_MOTOR_H_
 #define SDC_MOTOR_H_
 
+#include "PID_v1.h"
+
 ///////////////////////////////////////////////////////////////////////////////////////
 // motor class
 class SDC_Motor
 {
 public:
-    SDC_Motor(double rpm, uint8_t dirPin, uint8_t speedPin)
-        : max_speed_(rpm*2*PI/60), dirPin_(dirPin), speedPin_(speedPin), voltage_(12), running_(false) {}
+    SDC_Motor(double rpm, uint8_t dirPin, uint8_t speedPin);
 
     // call once in setup()
     void Setup();
@@ -28,12 +29,9 @@ public:
                 long *upos,         // starting position, in encoder units
                 long *ts);          // starting timestamp, in ms (returned by millis())
 
-    bool GetPos(long *upos, long *ts);
+    bool GetPos(long *upos, long *ts, long *setpoint);
     bool SetNextPos(long upos, long ts);
     void Stop();
-
-    // obsolete
-    bool Move(int speed);
 
 private:
     double max_speed_;  // rad/sec
@@ -44,6 +42,10 @@ private:
     long upos_;
     long ts_;
     double speed_;      // rad/sec
+    PID pid_;
+    double setpoint_, input_, output_;
+
+    void DoGetPos(long *upos, long *ts);
 };
 
 #endif /* SDC_MOTOR_H_ */

@@ -115,10 +115,11 @@ static void ProcessSerialCommand(char inchar)
 
     case 'P':   // poll
         {
-            long upos, ts;
-            motorALT.GetPos(&upos, &ts);
+            long upos, ts, setpoint;
+            motorALT.GetPos(&upos, &ts, &setpoint);
             printHex2(upos);
             printHex2(ts);
+            printHex2(setpoint);
         }
         break;
 
