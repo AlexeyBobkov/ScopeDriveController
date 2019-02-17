@@ -9,6 +9,11 @@
 #ifndef CONFIGURATION_H_
 #define CONFIGURATION_H_
 
+///////////////////////////////////////////////////////////////////////////////////////
+const long RESOLUTION = 2500*4;
+const long BEARING_RATIO = 22;
+const long ADDITIONAL_RATIO = 20;
+
 
 //#define FWD_SWITCH_IPIN         2       // forward motion switch pin #
 //#define REV_SWITCH_IPIN         3       // reverse motion switch pin #

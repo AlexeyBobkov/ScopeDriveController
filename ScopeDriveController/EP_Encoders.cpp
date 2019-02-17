@@ -53,8 +53,8 @@
 #define ALT_B_SET       (1<<(ALT_B_IPIN-ALT_PIN_OFFSET))
 #define ALT_AB_SET      ((1<<(ALT_A_IPIN-ALT_PIN_OFFSET))|(1<<(ALT_B_IPIN-ALT_PIN_OFFSET)))
 
-long ALT_res = 1800*4, AZ_res = 1800*4;  // resolution of encoders
-long ALT_pos, AZ_pos;                   // encoder positions
+long ALT_res = 2500*4, AZ_res = 2500*4;  // resolution of encoders
+volatile long ALT_pos, AZ_pos;           // encoder positions
 
 static uint8_t errors = 0;
 
@@ -187,9 +187,10 @@ static void ALTState01_Bck();
 static void ALTState10_Bck();
 static void ALTState11_Bck();
 
-static FN_STATE fnAZState = AZState00_Fwd, fnALTState = ALTState00_Fwd;
+static volatile FN_STATE fnAZState = AZState00_Fwd, fnALTState = ALTState00_Fwd;
 
 ///////////////////////////////////////////////////////////////////////////////////////
+/*
 #define INC_1(enc,s)                        \
         if (enc##_pos == enc##_res - 1)     \
             enc##_pos = 0;                  \
@@ -214,6 +215,25 @@ static FN_STATE fnAZState = AZState00_Fwd, fnALTState = ALTState00_Fwd;
         ++errors;                           \
         if ((enc##_pos -= 2) < 0)           \
             enc##_pos += enc##_res;         \
+        fn##enc##State = enc##State##s##_Bck;
+*/
+
+#define INC_1(enc,s)                        \
+        ++enc##_pos;                        \
+        fn##enc##State = enc##State##s##_Fwd;
+
+#define DEC_1(enc,s)                        \
+        --enc##_pos;                        \
+        fn##enc##State = enc##State##s##_Bck;
+
+#define INC_2(enc,s)                        \
+        ++errors;                           \
+        enc##_pos += 2;                     \
+        fn##enc##State = enc##State##s##_Fwd;
+
+#define DEC_2(enc,s)                        \
+        ++errors;                           \
+        enc##_pos -= 2;                     \
         fn##enc##State = enc##State##s##_Bck;
 
 ///////////////////////////////////////////////////////////////////////////////////////

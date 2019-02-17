@@ -20,6 +20,27 @@
 //int AIN1 = 9; //Direction
 //int AIN2 = 8; //Direction
 
+///////////////////////////////////////////////////////////////////////////////////////
+static void printHex(long val)
+{
+    byte buf[2];
+    buf[0] = val - (buf[1] = val / 256) * 256;
+    Serial.write(buf, 2);
+}
+
+static void printHex2(unsigned long v)
+{
+    byte buf[4];
+    buf[0] = v;
+    buf[1] = v >> 8;
+    buf[2] = v >> 16;
+    buf[3] = v >> 24;
+    Serial.write(buf, 4);
+}
+
+SDC_Motor motorALT(10, ALT_DIR_OPIN, ALT_PWM_OPIN);
+SDC_Motor motorAZ (10, AZ_DIR_OPIN,  AZ_PWM_OPIN);
+
 void setup()
 {
     pinMode(ENABLE_OPIN, OUTPUT);
@@ -31,48 +52,99 @@ void setup()
     ALT_AZ_TCCRB = (ALT_AZ_TCCRB & 0b11111000) | ALT_AZ_PRESCALER;
 
     EP_EncodersSetup();
+
+    motorALT.Setup();
+    motorAZ.Setup();
+    digitalWrite(ENABLE_OPIN, HIGH);
+
+    Serial.begin(115200);
 }
 
-int s1 = 255;
-int s2 = 128;
-int s3 = 64;
-int s4 = 32;
-int s5 = 16;
-int s6 = 8;
-
-/*
-int s1 = 15;
-int s2 = 13;
-int s3 = 11;
-int s4 = 10;
-int s5 = 9;
-int s6 = 8;
-*/
-
-SDC_Motor motorALT(ALT_DIR_OPIN, ALT_PWM_OPIN);
-SDC_Motor motorAZ (AZ_DIR_OPIN,  AZ_PWM_OPIN);
-
-void move(int motor, int speed, int direction)
+static void SetSpeed(byte buf[], int, int)
 {
-    //Move specific motor at speed and direction
-    //motor: 0 for B 1 for A
-    //speed: 0 is off, and 255 is full speed
-    //direction: 0 clockwise, 1 counter-clockwise
+    long speed = long((uint32_t(buf[3]) << 24) + (uint32_t(buf[2]) << 16) + (uint32_t(buf[1]) << 8) + uint32_t(buf[0]));
 
-    digitalWrite(ENABLE_OPIN, HIGH); //disable standby
-
-    motorALT.Move(direction ? speed : -speed);
+    long upos, ts;
+    motorALT.Start(speed, &upos, &ts);
+    printHex2(upos);
+    printHex2(ts);
 }
 
-void stop()
+///////////////////////////////////////////////////////////////////////////////////////
+#define SERIAL_BUF_SZ 8
+static byte serialBuf[SERIAL_BUF_SZ];
+static int serialBufCurr = 0;
+static int serialBufWait = 0;
+typedef void (*SERIAL_FN)(byte buf[], int curr, int wait);
+static SERIAL_FN serialFn;
+static void SetSerialBuf(int bufWait, SERIAL_FN fn)
 {
-    //enable standby
-    digitalWrite(ENABLE_OPIN, LOW);
-    motorALT.Move(0);
+    serialBufWait = bufWait;
+    serialBufCurr = 0;
+    serialFn = fn;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+static void ProcessSerialCommand(char inchar)
+{
+    if(serialBufWait)
+    {
+        serialBuf[serialBufCurr++] = (byte)inchar;
+        if(serialBufCurr >= serialBufWait)
+        {
+            byte buf[SERIAL_BUF_SZ];
+            memcpy(buf, serialBuf, sizeof(serialBuf));
+            int bufCurr = serialBufCurr;
+            int bufWait = serialBufWait;
+            serialBufCurr = serialBufWait = 0;
+            serialFn(buf, bufCurr, bufWait);
+        }
+        return;
+    }
+
+    switch(inchar)
+    {
+    case 'S':   // speed
+        SetSerialBuf(4, SetSpeed);
+        break;
+
+    case 'T':   // stop
+        motorALT.Stop();
+        Serial.print("r");
+        break;
+
+    case 'P':   // poll
+        {
+            long upos, ts;
+            motorALT.GetPos(&upos, &ts);
+            printHex2(upos);
+            printHex2(ts);
+        }
+        break;
+
+    default:
+    break;
+    }
+
 }
 
 void loop()
 {
+    // motor
+    bool safe = motorALT.Run();
+    bool safe2 = motorAZ.Run();
+    safe = safe && safe2;
+
+    // serial
+    static int safeSkip = 0;
+    if(Serial.available() && (safe || ++safeSkip > 10))
+    {
+        safeSkip = 0;
+        char inchar = Serial.read();
+        ProcessSerialCommand(inchar);
+    }
+
+    /*
     move(1, s1, 1); //motor 1, full speed, left
 
     delay(2000); //go for 1 second
@@ -108,5 +180,6 @@ void loop()
     delay(2000);
     stop();
     delay(250);
+    */
 }
 
