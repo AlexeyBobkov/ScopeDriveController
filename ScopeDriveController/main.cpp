@@ -38,8 +38,8 @@ static void printHex2(unsigned long v)
     Serial.write(buf, 4);
 }
 
-SDC_Motor motorALT(10, ALT_DIR_OPIN, ALT_PWM_OPIN);
-SDC_Motor motorAZ (10, AZ_DIR_OPIN,  AZ_PWM_OPIN);
+SDC_Motor motorALT(64, ALT_DIR_OPIN, ALT_PWM_OPIN);
+SDC_Motor motorAZ (64, AZ_DIR_OPIN,  AZ_PWM_OPIN);
 
 void setup()
 {
@@ -65,7 +65,7 @@ static void SetSpeed(byte buf[], int, int)
     long speed = long((uint32_t(buf[3]) << 24) + (uint32_t(buf[2]) << 16) + (uint32_t(buf[1]) << 8) + uint32_t(buf[0]));
 
     long upos, ts;
-    motorALT.Start(speed, &upos, &ts);
+    motorALT.Start(double(speed)/(24.0*60.0*60000.), &upos, &ts);
     printHex2(upos);
     printHex2(ts);
 }

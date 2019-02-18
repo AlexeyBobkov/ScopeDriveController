@@ -14,13 +14,12 @@
 const long DBG_ENCODER_RATIO = 5;
 const long MOTOR_RESOLUTION = RESOLUTION/DBG_ENCODER_RATIO;
 
-const double SPEED_COEFF = PI*2/(double(MOTOR_RESOLUTION)*24*60*60);
-
 SDC_Motor::SDC_Motor(double rpm, uint8_t dirPin, uint8_t speedPin)
-    :   max_speed_(rpm*2*PI/60), dirPin_(dirPin), speedPin_(speedPin), voltage_(12), running_(false),
+    :   max_speed_(rpm*MOTOR_RESOLUTION/60000), dirPin_(dirPin), speedPin_(speedPin), voltage_(12), running_(false),
         //pid_(&input_, &output_, &setpoint_, 5, 2, 0, DIRECT)      // 10rpm
         //pid_(&input_, &output_, &setpoint_, 2.5, 1, 0, DIRECT)    // 10rpm
-        pid_(&input_, &output_, &setpoint_, 1, 0.5, 0, DIRECT)   // 65rpm
+        //pid_(&input_, &output_, &setpoint_, 1, 0.5, 0, DIRECT)   // 65rpm
+        pid_(&input_, &output_, &setpoint_, 1, 2, 0, DIRECT)   // 60rpm
 {
     pid_.SetOutputLimits(-255,255);
     pid_.SetSampleTime(100);
@@ -36,17 +35,17 @@ void SDC_Motor::Setup()
 
 bool SDC_Motor::Run()
 {
-    if(!running_)
-        return true;
-
     long uposCurr, tsCurr;
     DoGetPos(&uposCurr, &tsCurr);
-    if(uposCurr == upos_ && tsCurr - ts_ < 1000)
-        return true;
+    //if(uposCurr == upos_ && tsCurr - ts_ < 1000)
+    //    return true;
 
-    setpoint_ = upos_ + speed_*MOTOR_RESOLUTION*(tsCurr - ts_)/(PI*2*1000.0);
+    setpoint_ = upos_ + speed_*(tsCurr - ts_);
     input_ = uposCurr;
     pid_.Compute();
+
+    if(!running_)
+        return true;
 
     int sp;
     uint8_t direction;
@@ -70,7 +69,7 @@ bool SDC_Motor::Run()
     return true;
 }
 
-bool SDC_Motor::Start (long uspeed, long *upos, long *ts)
+bool SDC_Motor::Start (double speed, long *upos, long *ts)
 {
     if(running_)
         return false;
@@ -79,9 +78,9 @@ bool SDC_Motor::Start (long uspeed, long *upos, long *ts)
     DoGetPos(&upos_, &ts_);
     *upos = upos_;
     *ts = ts_;
+    speed_ = speed;
 
-    speed_ = uspeed * SPEED_COEFF;
-
+    setpoint_ = input_ = upos_;
     pid_.SetMode(AUTOMATIC);
 
     // start motor
@@ -117,12 +116,20 @@ bool SDC_Motor::GetPos(long *upos, long *ts, long *setpoint)
 
 bool SDC_Motor::SetNextPos(long upos, long ts)
 {
+    if(!running_ || ts <= ts_)
+        return false;
+
+    speed_ = (upos - upos_)/(ts - ts_);
+    upos_ = upos;
+    ts_ = ts;
     return true;
 }
 
 void SDC_Motor::Stop()
 {
     running_ = false;
+    DoGetPos(&upos_, &ts_);
+    speed_ = 0;
     pid_.SetMode(MANUAL);
     analogWrite(speedPin_, 0);
 }
