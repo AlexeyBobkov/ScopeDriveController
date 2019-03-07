@@ -21,12 +21,14 @@
 //int AIN2 = 8; //Direction
 
 ///////////////////////////////////////////////////////////////////////////////////////
+/*
 static void printHex(long val)
 {
     byte buf[2];
     buf[0] = val - (buf[1] = val / 256) * 256;
     Serial.write(buf, 2);
 }
+*/
 
 static void printHex2(unsigned long v)
 {
@@ -70,6 +72,15 @@ static void SetSpeed(byte buf[], int, int)
     printHex2(ts);
 }
 
+static void NextPosition(byte buf[], int, int)
+{
+    long upos = long((uint32_t(buf[3]) << 24) + (uint32_t(buf[2]) << 16) + (uint32_t(buf[1]) << 8) + uint32_t(buf[0]));
+    long ts   = long((uint32_t(buf[7]) << 24) + (uint32_t(buf[6]) << 16) + (uint32_t(buf[5]) << 8) + uint32_t(buf[4]));
+
+    motorALT.SetNextPos(upos, ts);
+    Serial.print("r");
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////
 #define SERIAL_BUF_SZ 8
 static byte serialBuf[SERIAL_BUF_SZ];
@@ -104,8 +115,12 @@ static void ProcessSerialCommand(char inchar)
 
     switch(inchar)
     {
-    case 'S':   // speed
+    case 'S':   // start and set speed
         SetSerialBuf(4, SetSpeed);
+        break;
+
+    case 'N':   // next position
+        SetSerialBuf(8, NextPosition);
         break;
 
     case 'T':   // stop

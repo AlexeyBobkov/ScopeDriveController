@@ -25,7 +25,7 @@ public:
     // returns true if safe to do some long job
     bool Run();
 
-    bool Start (double speed,       // start speed, in encoder units/msec
+    bool Start (double speed,       // start speed, in encoder units/ms
                 long *upos,         // starting position, in encoder units
                 long *ts);          // starting timestamp, in ms (returned by millis())
 
@@ -34,14 +34,14 @@ public:
     void Stop();
 
 private:
-    double max_speed_;  // units/msec
+    double max_speed_;  // units/ms
     uint8_t dirPin_, speedPin_; // pins
     double voltage_;
 
     bool running_;
     long upos_;
     long ts_;
-    double speed_;      // units/msec
+    double speed_;      // units/ms
     PID pid_;
     double setpoint_, input_, output_;
 
