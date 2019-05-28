@@ -11,15 +11,6 @@
 #include "EP_Encoders.h"
 #include "SDC_Motor.h"
 
-//motor A connected between A01 and A02
-
-//int STBY = 10; //standby
-
-//Motor A
-//int PWMA = 11; //Speed control
-//int AIN1 = 9; //Direction
-//int AIN2 = 8; //Direction
-
 ///////////////////////////////////////////////////////////////////////////////////////
 /*
 static void printHex(long val)
@@ -40,23 +31,27 @@ static void printHex2(unsigned long v)
     Serial.write(buf, 4);
 }
 
-SDC_Motor motorALT(64, ALT_DIR_OPIN, ALT_PWM_OPIN);
-SDC_Motor motorAZ (64, AZ_DIR_OPIN,  AZ_PWM_OPIN);
+SDC_Motor motorALT(64, DIR1_OPIN, PWMA_OPIN, EP_GetMotorAltEncoderPositionPtr());
+SDC_Motor motorAZM(64, DIR2_OPIN, PWMB_OPIN, EP_GetMotorAzmEncoderPositionPtr());
 
 void setup()
 {
+    pinMode(SOUND_OPIN, OUTPUT);
+
+    pinMode(SWITCH_IPIN, INPUT_PULLUP);
     pinMode(ENABLE_OPIN, OUTPUT);
-    pinMode(ALT_PWM_OPIN, OUTPUT);
-    pinMode(ALT_DIR_OPIN, OUTPUT);
-    pinMode(AZ_PWM_OPIN, OUTPUT);
-    pinMode(AZ_DIR_OPIN, OUTPUT);
-    
-    ALT_AZ_TCCRB = (ALT_AZ_TCCRB & 0b11111000) | ALT_AZ_PRESCALER;
+    //pinMode(DIR1_OPIN, OUTPUT);
+    //pinMode(DIR2_OPIN, OUTPUT);
+    //pinMode(PWMB_OPIN, OUTPUT);
+    //pinMode(PWMA_OPIN, OUTPUT);
+
+    // configure PWM
+    ALT_AZM_TCCRB = (ALT_AZM_TCCRB & 0b11111000) | ALT_AZM_PRESCALER;
 
     EP_EncodersSetup();
 
     motorALT.Setup();
-    motorAZ.Setup();
+    motorAZM.Setup();
     digitalWrite(ENABLE_OPIN, HIGH);
 
     Serial.begin(115200);
@@ -67,7 +62,7 @@ static void SetSpeed(byte buf[], int, int)
     long speed = long((uint32_t(buf[3]) << 24) + (uint32_t(buf[2]) << 16) + (uint32_t(buf[1]) << 8) + uint32_t(buf[0]));
 
     long upos, ts;
-    motorALT.Start(double(speed)/(24.0*60.0*60000.), &upos, &ts);
+    motorAZM.Start(double(speed)/(24.0*60.0*60000.), &upos, &ts);
     printHex2(upos);
     printHex2(ts);
 }
@@ -77,7 +72,7 @@ static void NextPosition(byte buf[], int, int)
     long upos = long((uint32_t(buf[3]) << 24) + (uint32_t(buf[2]) << 16) + (uint32_t(buf[1]) << 8) + uint32_t(buf[0]));
     long ts   = long((uint32_t(buf[7]) << 24) + (uint32_t(buf[6]) << 16) + (uint32_t(buf[5]) << 8) + uint32_t(buf[4]));
 
-    motorALT.SetNextPos(upos, ts);
+    motorAZM.SetNextPos(upos, ts);
     Serial.print("r");
 }
 
@@ -124,14 +119,14 @@ static void ProcessSerialCommand(char inchar)
         break;
 
     case 'T':   // stop
-        motorALT.Stop();
+        motorAZM.Stop();
         Serial.print("r");
         break;
 
     case 'P':   // poll
         {
             long upos, ts, setpoint;
-            motorALT.GetPos(&upos, &ts, &setpoint);
+            motorAZM.GetPos(&upos, &ts, &setpoint);
             printHex2(upos);
             printHex2(ts);
             printHex2(setpoint);
@@ -148,7 +143,7 @@ void loop()
 {
     // motor
     bool safe = motorALT.Run();
-    bool safe2 = motorAZ.Run();
+    bool safe2 = motorAZM.Run();
     safe = safe && safe2;
 
     // serial
@@ -159,43 +154,5 @@ void loop()
         char inchar = Serial.read();
         ProcessSerialCommand(inchar);
     }
-
-    /*
-    move(1, s1, 1); //motor 1, full speed, left
-
-    delay(2000); //go for 1 second
-    stop(); //stop
-    delay(250); //hold for 250ms until move again
-
-    move(1, s2, 0); //motor 1, half speed, right
-
-    delay(2000);
-    stop();
-    delay(250);
-
-    move(1, s3, 1); //motor 1, full speed, left
-
-    delay(2000); //go for 1 second
-    stop(); //stop
-    delay(250); //hold for 250ms until move again
-
-    move(1, s4, 0); //motor 1, half speed, right
-
-    delay(2000);
-    stop();
-    delay(250);
-
-    move(1, s5, 1); //motor 1, full speed, left
-
-    delay(2000); //go for 1 second
-    stop(); //stop
-    delay(250); //hold for 250ms until move again
-
-    move(1, s6, 0); //motor 1, half speed, right
-
-    delay(2000);
-    stop();
-    delay(250);
-    */
 }
 

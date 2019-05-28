@@ -20,6 +20,7 @@ long EP_GetAltEncoderPosition();
 void EP_SetAzEncoderResolution(long lAz);
 void EP_SetAltEncoderResolution(long lAlt);
 
-uint8_t EP_GetEncoderErrorCount();
+volatile long* EP_GetMotorAltEncoderPositionPtr();
+volatile long* EP_GetMotorAzmEncoderPositionPtr();
 
 #endif /* EP_ENCODERS_H_ */

@@ -11,15 +11,15 @@
 #include "EP_Encoders.h"
 #include "SDC_Motor.h"
 
-const long DBG_ENCODER_RATIO = 5;
+const long DBG_ENCODER_RATIO = 2;
 const long MOTOR_RESOLUTION = RESOLUTION/DBG_ENCODER_RATIO;
 
-SDC_Motor::SDC_Motor(double rpm, uint8_t dirPin, uint8_t speedPin)
-    :   max_speed_(rpm*MOTOR_RESOLUTION/60000), dirPin_(dirPin), speedPin_(speedPin), voltage_(12), running_(false),
+SDC_Motor::SDC_Motor(double rpm, uint8_t dirPin, uint8_t speedPin, volatile long *encPos)
+    :   max_speed_(rpm*MOTOR_RESOLUTION/60000), dirPin_(dirPin), speedPin_(speedPin), encPos_(encPos), running_(false),
         //pid_(&input_, &output_, &setpoint_, 5, 2, 0, DIRECT)      // 10rpm
         //pid_(&input_, &output_, &setpoint_, 2.5, 1, 0, DIRECT)    // 10rpm
-        //pid_(&input_, &output_, &setpoint_, 1, 0.5, 0, DIRECT)   // 65rpm
-        pid_(&input_, &output_, &setpoint_, 1, 2, 0, DIRECT)   // 60rpm
+        pid_(&input_, &output_, &setpoint_, 1, 0.5, 0, DIRECT)   // 65rpm
+        //pid_(&input_, &output_, &setpoint_, 1, 2, 0, DIRECT)   // 60rpm
 {
     pid_.SetOutputLimits(-255,255);
     pid_.SetSampleTime(100);
@@ -109,7 +109,7 @@ bool SDC_Motor::Start (double speed, long *upos, long *ts)
 bool SDC_Motor::GetPos(long *upos, long *ts, long *setpoint)
 {
     *ts = millis();
-    *upos = EP_GetAltEncoderPosition()/DBG_ENCODER_RATIO;
+    *upos = *encPos_/DBG_ENCODER_RATIO;
     *setpoint = (long)setpoint_;
     return true;
 }
@@ -137,5 +137,5 @@ void SDC_Motor::Stop()
 void SDC_Motor::DoGetPos(long *upos, long *ts)
 {
     *ts = millis();
-    *upos = EP_GetAltEncoderPosition()/DBG_ENCODER_RATIO;
+    *upos = *encPos_/DBG_ENCODER_RATIO;
 }

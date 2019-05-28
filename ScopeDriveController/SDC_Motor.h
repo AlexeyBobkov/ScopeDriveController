@@ -16,7 +16,7 @@
 class SDC_Motor
 {
 public:
-    SDC_Motor(double rpm, uint8_t dirPin, uint8_t speedPin);
+    SDC_Motor(double rpm, uint8_t dirPin, uint8_t speedPin, volatile long *encPos);
 
     // call once in setup()
     void Setup();
@@ -36,7 +36,7 @@ public:
 private:
     double max_speed_;  // units/ms
     uint8_t dirPin_, speedPin_; // pins
-    double voltage_;
+    volatile long *encPos_;
 
     bool running_;
     long upos_;
