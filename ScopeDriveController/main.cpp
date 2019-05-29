@@ -13,6 +13,11 @@
 #include "SDC_Sound.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////
+const long RESOLUTION = 1000*4;
+//const long BEARING_RATIO = 22;
+//const long ADDITIONAL_RATIO = 20;
+
+///////////////////////////////////////////////////////////////////////////////////////
 /*
 static void printHex(long val)
 {
@@ -41,8 +46,8 @@ public:
 };
 IntlkMotionType intlk;
 
-SDC_Motor motorALT(64, DIR1_OPIN, PWMA_OPIN, &intlk, SDC_GetMotorAltEncoderPositionPtr());
-SDC_Motor motorAZM(64, DIR2_OPIN, PWMB_OPIN, &intlk, SDC_GetMotorAzmEncoderPositionPtr());
+SDC_Motor motorALT(64*RESOLUTION/60000, 0.5, 0.5, DIR1_OPIN, PWMA_OPIN, &intlk, SDC_GetMotorAltEncoderPositionPtr());   // 65rpm
+SDC_Motor motorAZM(64*RESOLUTION/60000, 0.5, 0.5, DIR2_OPIN, PWMB_OPIN, &intlk, SDC_GetMotorAzmEncoderPositionPtr());   // 65rpm
 
 void setup()
 {
@@ -71,10 +76,11 @@ void setup()
 
 static void SetSpeed(byte buf[], int, int)
 {
+    // speed: units/day
     long speed = long((uint32_t(buf[3]) << 24) + (uint32_t(buf[2]) << 16) + (uint32_t(buf[1]) << 8) + uint32_t(buf[0]));
 
     long upos, ts;
-    motorAZM.Start(double(speed)/(24.0*60.0*60000.), &upos, &ts);
+    motorAZM.Start(double(speed)/(24.0*60.0*60000.), &upos, &ts);   // convert speed -> units/ms
     printHex2(upos);
     printHex2(ts);
 }

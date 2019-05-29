@@ -25,7 +25,7 @@ public:
         virtual void    MotorStopped(SDC_Motor *m)          = 0;    // action on motor stopped
     };
 
-    SDC_Motor(double rpm, uint8_t dirPin, uint8_t speedPin, MotionType *mt, volatile long *encPos);
+    SDC_Motor(double max_speed, double Kp, double Ki, uint8_t dirPin, uint8_t speedPin, MotionType *mt, volatile long *encPos);
 
     // call once in setup()
     void Setup();
