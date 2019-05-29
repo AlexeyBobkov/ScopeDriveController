@@ -16,7 +16,16 @@
 class SDC_Motor
 {
 public:
-    SDC_Motor(double rpm, uint8_t dirPin, uint8_t speedPin, volatile long *encPos);
+    // motion law
+    class MotionType
+    {
+    public:
+        virtual bool    CanMove(const SDC_Motor *m) const   = 0;    // can the motor move?
+        virtual void    MotorStarted(SDC_Motor *m)          = 0;    // action on motor started
+        virtual void    MotorStopped(SDC_Motor *m)          = 0;    // action on motor stopped
+    };
+
+    SDC_Motor(double rpm, uint8_t dirPin, uint8_t speedPin, MotionType *mt, volatile long *encPos);
 
     // call once in setup()
     void Setup();
@@ -29,6 +38,7 @@ public:
                 long *upos,         // starting position, in encoder units
                 long *ts);          // starting timestamp, in ms (returned by millis())
 
+    bool IsRunning() const {return running_;}
     bool GetPos(long *upos, long *ts, long *setpoint);
     bool SetNextPos(long upos, long ts);
     void Stop();
@@ -36,6 +46,7 @@ public:
 private:
     double max_speed_;  // units/ms
     uint8_t dirPin_, speedPin_; // pins
+    MotionType *mt_;
     volatile long *encPos_;
 
     bool running_;

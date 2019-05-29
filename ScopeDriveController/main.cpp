@@ -10,6 +10,7 @@
 #include "SDC_Configuration.h"
 #include "EP_Encoders.h"
 #include "SDC_Motor.h"
+#include "SDC_Sound.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////
 /*
@@ -31,12 +32,21 @@ static void printHex2(unsigned long v)
     Serial.write(buf, 4);
 }
 
-SDC_Motor motorALT(64, DIR1_OPIN, PWMA_OPIN, EP_GetMotorAltEncoderPositionPtr());
-SDC_Motor motorAZM(64, DIR2_OPIN, PWMB_OPIN, EP_GetMotorAzmEncoderPositionPtr());
+class IntlkMotionType : public SDC_Motor::MotionType
+{
+public:
+    virtual bool    CanMove(const SDC_Motor *m) const   {return digitalRead(SWITCH_IPIN) == 0;}
+    virtual void    MotorStarted(SDC_Motor *m)          {}
+    virtual void    MotorStopped(SDC_Motor *m)          {SDC_Sound(400, 500);}
+};
+IntlkMotionType intlk;
+
+SDC_Motor motorALT(64, DIR1_OPIN, PWMA_OPIN, &intlk, EP_GetMotorAltEncoderPositionPtr());
+SDC_Motor motorAZM(64, DIR2_OPIN, PWMB_OPIN, &intlk, EP_GetMotorAzmEncoderPositionPtr());
 
 void setup()
 {
-    pinMode(SOUND_OPIN, OUTPUT);
+    //pinMode(SOUND_OPIN, OUTPUT);
 
     pinMode(SWITCH_IPIN, INPUT_PULLUP);
     pinMode(ENABLE_OPIN, OUTPUT);
@@ -54,6 +64,8 @@ void setup()
     motorAZM.Setup();
     digitalWrite(ENABLE_OPIN, HIGH);
 
+    SDC_Sound_Setup();
+
     Serial.begin(115200);
 }
 
@@ -62,7 +74,7 @@ static void SetSpeed(byte buf[], int, int)
     long speed = long((uint32_t(buf[3]) << 24) + (uint32_t(buf[2]) << 16) + (uint32_t(buf[1]) << 8) + uint32_t(buf[0]));
 
     long upos, ts;
-    motorAZM.Start(double(speed)/(24.0*60.0*60000.), &upos, &ts);
+    motorALT.Start(double(speed)/(24.0*60.0*60000.), &upos, &ts);
     printHex2(upos);
     printHex2(ts);
 }
@@ -72,7 +84,7 @@ static void NextPosition(byte buf[], int, int)
     long upos = long((uint32_t(buf[3]) << 24) + (uint32_t(buf[2]) << 16) + (uint32_t(buf[1]) << 8) + uint32_t(buf[0]));
     long ts   = long((uint32_t(buf[7]) << 24) + (uint32_t(buf[6]) << 16) + (uint32_t(buf[5]) << 8) + uint32_t(buf[4]));
 
-    motorAZM.SetNextPos(upos, ts);
+    motorALT.SetNextPos(upos, ts);
     Serial.print("r");
 }
 
@@ -119,17 +131,18 @@ static void ProcessSerialCommand(char inchar)
         break;
 
     case 'T':   // stop
-        motorAZM.Stop();
+        motorALT.Stop();
         Serial.print("r");
         break;
 
     case 'P':   // poll
         {
             long upos, ts, setpoint;
-            motorAZM.GetPos(&upos, &ts, &setpoint);
+            byte running = motorALT.GetPos(&upos, &ts, &setpoint) ? 1 : 0;
             printHex2(upos);
             printHex2(ts);
             printHex2(setpoint);
+            Serial.write(&running, 1);
         }
         break;
 
@@ -141,6 +154,8 @@ static void ProcessSerialCommand(char inchar)
 
 void loop()
 {
+    SDC_Sound_Run();
+
     // motor
     bool safe = motorALT.Run();
     bool safe2 = motorAZM.Run();

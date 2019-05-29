@@ -14,8 +14,8 @@
 const long DBG_ENCODER_RATIO = 2;
 const long MOTOR_RESOLUTION = RESOLUTION/DBG_ENCODER_RATIO;
 
-SDC_Motor::SDC_Motor(double rpm, uint8_t dirPin, uint8_t speedPin, volatile long *encPos)
-    :   max_speed_(rpm*MOTOR_RESOLUTION/60000), dirPin_(dirPin), speedPin_(speedPin), encPos_(encPos), running_(false),
+SDC_Motor::SDC_Motor(double rpm, uint8_t dirPin, uint8_t speedPin, MotionType *mt, volatile long *encPos)
+    :   max_speed_(rpm*MOTOR_RESOLUTION/60000), dirPin_(dirPin), speedPin_(speedPin), mt_(mt), encPos_(encPos), running_(false),
         //pid_(&input_, &output_, &setpoint_, 5, 2, 0, DIRECT)      // 10rpm
         //pid_(&input_, &output_, &setpoint_, 2.5, 1, 0, DIRECT)    // 10rpm
         pid_(&input_, &output_, &setpoint_, 1, 0.5, 0, DIRECT)   // 65rpm
@@ -46,6 +46,12 @@ bool SDC_Motor::Run()
 
     if(!running_)
         return true;
+    if(mt_ && !mt_->CanMove(this))
+    {
+        Stop();
+        mt_->MotorStopped(this);
+        return true;
+    }
 
     int sp;
     uint8_t direction;
@@ -73,7 +79,13 @@ bool SDC_Motor::Start (double speed, long *upos, long *ts)
 {
     if(running_)
         return false;
+
+    if(mt_ && !mt_->CanMove(this))
+        return false;
+
     running_ = true;
+    if(mt_)
+        mt_->MotorStarted(this);
 
     DoGetPos(&upos_, &ts_);
     *upos = upos_;
@@ -111,7 +123,7 @@ bool SDC_Motor::GetPos(long *upos, long *ts, long *setpoint)
     *ts = millis();
     *upos = *encPos_/DBG_ENCODER_RATIO;
     *setpoint = (long)setpoint_;
-    return true;
+    return running_;
 }
 
 bool SDC_Motor::SetNextPos(long upos, long ts)
