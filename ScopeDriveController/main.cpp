@@ -8,7 +8,7 @@
 #include <Arduino.h>
 
 #include "SDC_Configuration.h"
-#include "EP_Encoders.h"
+#include "SDC_Encoders.h"
 #include "SDC_Motor.h"
 #include "SDC_Sound.h"
 
@@ -35,14 +35,14 @@ static void printHex2(unsigned long v)
 class IntlkMotionType : public SDC_Motor::MotionType
 {
 public:
-    virtual bool    CanMove(const SDC_Motor *m) const   {return digitalRead(SWITCH_IPIN) == 0;}
-    virtual void    MotorStarted(SDC_Motor *m)          {}
-    virtual void    MotorStopped(SDC_Motor *m)          {SDC_Sound(400, 500);}
+    virtual bool    CanMove(const SDC_Motor*) const {return digitalRead(SWITCH_IPIN) == 0;}
+    virtual void    MotorStarted(SDC_Motor*)        {}
+    virtual void    MotorStopped(SDC_Motor*)        {MakeSound(400);}
 };
 IntlkMotionType intlk;
 
-SDC_Motor motorALT(64, DIR1_OPIN, PWMA_OPIN, &intlk, EP_GetMotorAltEncoderPositionPtr());
-SDC_Motor motorAZM(64, DIR2_OPIN, PWMB_OPIN, &intlk, EP_GetMotorAzmEncoderPositionPtr());
+SDC_Motor motorALT(64, DIR1_OPIN, PWMA_OPIN, &intlk, SDC_GetMotorAltEncoderPositionPtr());
+SDC_Motor motorAZM(64, DIR2_OPIN, PWMB_OPIN, &intlk, SDC_GetMotorAzmEncoderPositionPtr());
 
 void setup()
 {
@@ -58,13 +58,13 @@ void setup()
     // configure PWM
     ALT_AZM_TCCRB = (ALT_AZM_TCCRB & 0b11111000) | ALT_AZM_PRESCALER;
 
-    EP_EncodersSetup();
+    SDC_EncodersSetup();
 
     motorALT.Setup();
     motorAZM.Setup();
     digitalWrite(ENABLE_OPIN, HIGH);
 
-    SDC_Sound_Setup();
+    SoundSetup();
 
     Serial.begin(115200);
 }
@@ -74,7 +74,7 @@ static void SetSpeed(byte buf[], int, int)
     long speed = long((uint32_t(buf[3]) << 24) + (uint32_t(buf[2]) << 16) + (uint32_t(buf[1]) << 8) + uint32_t(buf[0]));
 
     long upos, ts;
-    motorALT.Start(double(speed)/(24.0*60.0*60000.), &upos, &ts);
+    motorAZM.Start(double(speed)/(24.0*60.0*60000.), &upos, &ts);
     printHex2(upos);
     printHex2(ts);
 }
@@ -84,7 +84,7 @@ static void NextPosition(byte buf[], int, int)
     long upos = long((uint32_t(buf[3]) << 24) + (uint32_t(buf[2]) << 16) + (uint32_t(buf[1]) << 8) + uint32_t(buf[0]));
     long ts   = long((uint32_t(buf[7]) << 24) + (uint32_t(buf[6]) << 16) + (uint32_t(buf[5]) << 8) + uint32_t(buf[4]));
 
-    motorALT.SetNextPos(upos, ts);
+    motorAZM.SetNextPos(upos, ts);
     Serial.print("r");
 }
 
@@ -131,14 +131,14 @@ static void ProcessSerialCommand(char inchar)
         break;
 
     case 'T':   // stop
-        motorALT.Stop();
+        motorAZM.Stop();
         Serial.print("r");
         break;
 
     case 'P':   // poll
         {
             long upos, ts, setpoint;
-            byte running = motorALT.GetPos(&upos, &ts, &setpoint) ? 1 : 0;
+            byte running = motorAZM.GetPos(&upos, &ts, &setpoint) ? 1 : 0;
             printHex2(upos);
             printHex2(ts);
             printHex2(setpoint);
@@ -154,7 +154,10 @@ static void ProcessSerialCommand(char inchar)
 
 void loop()
 {
-    SDC_Sound_Run();
+    SoundRun();
+
+    // interlock
+    digitalWrite(ENABLE_OPIN, digitalRead(SWITCH_IPIN) ? LOW : HIGH);
 
     // motor
     bool safe = motorALT.Run();

@@ -11,45 +11,40 @@
 #include "SDC_Sound.h"
 
 static unsigned long endTs, periodTs, period2;
-static uint8_t level = LOW;
 
-void SDC_Sound_Setup()
+void SoundSetup()
 {
     endTs = 0;
     pinMode(SOUND_OPIN, OUTPUT);
 }
 
-void SDC_Sound_Run()
+void SoundRun()
 {
     if(!endTs)
         return;
 
-    unsigned long ts = millis();
-    if(ts > endTs)
+    if(millis() > endTs)
     {
         endTs = 0;
         digitalWrite(SOUND_OPIN, LOW);
-        return;
     }
-
-    ts = micros() - periodTs;
-    if(ts >= period2)
+    else
     {
-        periodTs = ts;
-        digitalWrite(SOUND_OPIN, level);
-        level = (level == HIGH) ? LOW : HIGH;
+        unsigned long ts = micros();
+        if(ts - periodTs >= period2)
+        {
+            periodTs = ts;
+            digitalWrite(SOUND_OPIN, digitalRead(SOUND_OPIN) ? LOW : HIGH);
+        }
     }
 }
 
-void SDC_Sound(unsigned long duration, unsigned int frequency)
+void MakeSound(unsigned long duration, unsigned int frequency)
 {
     if(frequency <= 0 || !duration)
         return;
 
     endTs = millis() + duration;
-
     periodTs = micros();
     period2 = ((unsigned long)500000)/((unsigned long)frequency);
-    if(!period2)
-        period2 = 1;
 }

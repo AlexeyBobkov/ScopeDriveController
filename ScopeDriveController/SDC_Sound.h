@@ -9,8 +9,8 @@
 #ifndef SDC_SOUND_H_
 #define SDC_SOUND_H_
 
-extern void SDC_Sound_Setup();
-extern void SDC_Sound_Run();
-extern void SDC_Sound(unsigned long duration = 200, unsigned int frequency = 1000);
+extern void SoundSetup();
+extern void SoundRun();
+extern void MakeSound(unsigned long duration, unsigned int frequency = 1000);
 
 #endif /* SDC_SOUND_H_ */

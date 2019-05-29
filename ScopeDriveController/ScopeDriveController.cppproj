@@ -339,10 +339,10 @@
     </ToolchainSettings>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="EP_Encoders.cpp">
+    <Compile Include="SDC_Encoders.cpp">
       <SubType>compile</SubType>
     </Compile>
-    <Compile Include="EP_Encoders.h">
+    <Compile Include="SDC_Encoders.h">
       <SubType>compile</SubType>
     </Compile>
     <Compile Include="SDC_Sound.cpp">

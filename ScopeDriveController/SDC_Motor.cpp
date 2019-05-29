@@ -8,7 +8,6 @@
 #include <Arduino.h>
 
 #include "SDC_Configuration.h"
-#include "EP_Encoders.h"
 #include "SDC_Motor.h"
 
 const long DBG_ENCODER_RATIO = 2;

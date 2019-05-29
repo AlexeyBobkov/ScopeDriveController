@@ -1,30 +1,27 @@
 /*
- * EP_Encoders.cpp
+ * SDC_Encoders.cpp
  *
  * Created: 10/5/2014 2:29:13 PM
  *  Author: Alexey
- */ 
+ */
 
 #include "Arduino.h"
 
-#include "EP_Encoders.h"
+#include "SDC_Encoders.h"
 #include "SDC_Configuration.h"
 //#include "EP_Storage.h"
 
-long ALT_res = 2500*4, AZM_res = 2500*4;                // resolution of telescope encoders
-long MALT_res = 1000*4, MAZM_res = 1000*4;              // resolution of motor encoders
+//long ALT_res = 2500*4, AZM_res = 2500*4;                // resolution of telescope encoders
+//long MALT_res = 1000*4, MAZM_res = 1000*4;              // resolution of motor encoders
 volatile long ALT_pos, AZM_pos, MALT_pos, MAZM_pos;     // encoder positions
 
 ///////////////////////////////////////////////////////////////////////////////////////
-void EP_EncodersSetup()
+void SDC_EncodersSetup()
 {
-    //ALT_res = EP_ReadDefEncResolutionAlt();
-    //AZM_res = EP_ReadDefEncResolutionAzm();
-
-    ALT_pos = ALT_res/2;
-    AZM_pos = AZM_res/2;
-    MALT_pos = MALT_res/2;
-    MAZM_pos = MAZM_res/2;
+    ALT_pos = 0;
+    AZM_pos = 0;
+    MALT_pos = 0;
+    MAZM_pos = 0;
 
     // initialize the encoder inputs
     pinMode(ALT_A_IPIN, INPUT);
@@ -57,34 +54,10 @@ void EP_EncodersSetup()
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
-long EP_GetAzEncoderResolution()   {return AZM_res;}
-long EP_GetAltEncoderResolution()  {return ALT_res;}
-
-///////////////////////////////////////////////////////////////////////////////////////
-long EP_GetAzEncoderPosition()     {return AZM_pos;}
-long EP_GetAltEncoderPosition()    {return ALT_pos;}
-
-///////////////////////////////////////////////////////////////////////////////////////
-volatile long* EP_GetMotorAltEncoderPositionPtr()   {return &MALT_pos;}
-volatile long* EP_GetMotorAzmEncoderPositionPtr()   {return &MAZM_pos;}
-
-///////////////////////////////////////////////////////////////////////////////////////
-void EP_SetAzEncoderResolution(long lAz)
-{
-    if(AZM_res != lAz)
-    {
-        AZM_res = lAz;
-        AZM_pos = AZM_res/2;
-    }
-}
-void EP_SetAltEncoderResolution(long lAlt)
-{
-    if(ALT_res != lAlt)
-    {
-        ALT_res = lAlt;
-        ALT_pos = ALT_res/2;
-    }
-}
+volatile long* SDC_GetAltEncoderPositionPtr()       {return &ALT_pos;}
+volatile long* SDC_GetAzmEncoderPositionPtr()       {return &AZM_pos;}
+volatile long* SDC_GetMotorAltEncoderPositionPtr()  {return &MALT_pos;}
+volatile long* SDC_GetMotorAzmEncoderPositionPtr()  {return &MAZM_pos;}
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // Interrupts
