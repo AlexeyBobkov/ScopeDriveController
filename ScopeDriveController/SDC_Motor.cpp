@@ -7,7 +7,6 @@
 
 #include <Arduino.h>
 
-#include "SDC_Configuration.h"
 #include "SDC_Motor.h"
 
 SDC_Motor::SDC_Motor(double max_speed, double Kp, double Ki, uint8_t dirPin, uint8_t speedPin, MotionType *mt, volatile long *encPos)

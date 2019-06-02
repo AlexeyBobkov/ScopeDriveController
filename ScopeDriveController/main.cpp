@@ -10,6 +10,7 @@
 #include "SDC_Configuration.h"
 #include "SDC_Encoders.h"
 #include "SDC_Motor.h"
+#include "SDC_EncPositionAdapter.h"
 #include "SDC_Sound.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -46,8 +47,26 @@ public:
 };
 IntlkMotionType intlk;
 
-SDC_Motor motorALT(64*RESOLUTION/60000, 0.5, 0.5, DIR1_OPIN, PWMA_OPIN, &intlk, SDC_GetMotorAltEncoderPositionPtr());   // 65rpm
-SDC_Motor motorAZM(64*RESOLUTION/60000, 0.5, 0.5, DIR2_OPIN, PWMB_OPIN, &intlk, SDC_GetMotorAzmEncoderPositionPtr());   // 65rpm
+//
+// For an ideal motor, the best Ki (integral coefficient in PID) choice, to avoid oscillations:
+//
+//  Ki <= RESOLUTION*RPM*(Kp^2)/(60*255*4)
+//
+// where
+//  RESOLUTION  - encoder resolution per full cycle
+//  RPM         - motor speed (rotations per minute)
+//  Kp          - proportional coefficient in PID
+//
+// For example, if RESOLUTION = 4000, RPM = 65rpm, Kp = 0.5, Ki <= 4000*65*0.25/61200 = 1.06
+//
+// As a real motor is not ideal and has some threshold voltage to start rotation, it may be better to make the Ki smaller than the theoretical value.
+// The system stabilizes slower but oscillates less on slow speeds. (Is oscillation on slow speed really a problem?)
+//
+SDC_Motor motorALT(64*RESOLUTION/60000, 0.5, 0.4, DIR1_OPIN, PWMA_OPIN, &intlk, SDC_GetMotorAltEncoderPositionPtr());   // 65rpm
+SDC_Motor motorAZM(64*RESOLUTION/60000, 0.5, 0.4, DIR2_OPIN, PWMB_OPIN, &intlk, SDC_GetMotorAzmEncoderPositionPtr());   // 65rpm
+
+SDC_EncPosAdapter adapterALT(0.5, 7, SDC_GetMotorAltEncoderPositionPtr(), SDC_GetAltEncoderPositionPtr(), 224.9, &motorALT);
+SDC_EncPosAdapter adapterAZM(0.5, 5, SDC_GetMotorAzmEncoderPositionPtr(), SDC_GetAzmEncoderPositionPtr(), 175.6, &motorAZM);
 
 void setup()
 {
@@ -148,6 +167,7 @@ static void ProcessSerialCommand(char inchar)
             printHex2(upos);
             printHex2(ts);
             printHex2(setpoint);
+            printHex2(*SDC_GetAzmEncoderPositionPtr());
             Serial.write(&running, 1);
         }
         break;

@@ -345,6 +345,12 @@
     <Compile Include="SDC_Encoders.h">
       <SubType>compile</SubType>
     </Compile>
+    <Compile Include="SDC_EncPositionAdapter.cpp">
+      <SubType>compile</SubType>
+    </Compile>
+    <Compile Include="SDC_EncPositionAdapter.h">
+      <SubType>compile</SubType>
+    </Compile>
     <Compile Include="SDC_Sound.cpp">
       <SubType>compile</SubType>
     </Compile>
