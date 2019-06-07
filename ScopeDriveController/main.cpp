@@ -82,13 +82,14 @@ void setup()
     // configure PWM
     ALT_AZM_TCCRB = (ALT_AZM_TCCRB & 0b11111000) | ALT_AZM_PRESCALER;
 
+    SoundSetup();
     SDC_EncodersSetup();
-
     motorALT.Setup();
     motorAZM.Setup();
-    digitalWrite(ENABLE_OPIN, HIGH);
+    adapterALT.Setup();
+    adapterAZM.Setup();
 
-    SoundSetup();
+    digitalWrite(ENABLE_OPIN, HIGH);
 
     Serial.begin(115200);
 }

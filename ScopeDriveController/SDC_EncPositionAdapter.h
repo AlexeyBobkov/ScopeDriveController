@@ -35,6 +35,7 @@ public:
     // SDC_MotorItf
     bool IsRunning() const;
     bool GetPos(Ref *ref, long *setpoint) const;
+    double GetMaxSpeed() const {return motor_->GetMaxSpeed() / options_.scopeToMotor_;}
     bool Start (double speed, MotionType *mt, Ref *ref);
     bool SetSpeed(double speed, Ref *ref);
     bool SetNextPos(long upos, long ts, Ref *ref);
@@ -51,10 +52,11 @@ private:
     long ts_;
     double speed_;      // units/ms
     double setpoint_, input_, output_;
+    long lastAdjustPID_;
     PID pid_;
 
     void DoGetPos(long *spos, long *mpos, long *ts);
-    void UpdateSpeed(double speed);
+    void AdjustPID();
 };
 
 

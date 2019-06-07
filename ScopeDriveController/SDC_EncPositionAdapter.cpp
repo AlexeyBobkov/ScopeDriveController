@@ -6,11 +6,14 @@
  */
 
 #include <Arduino.h>
+#include <float.h>
 
 #include "SDC_EncPositionAdapter.h"
 
+const long ADJUST_PID_TMO = 1000;
+
 SDC_MotorAdapter::SDC_MotorAdapter(const Options &options, volatile long *scopeEncPos, volatile long *motorEncPos, SDC_MotorItf *motor)
-    :   options_(options), scopeEncPos_(scopeEncPos), motorEncPos_(motorEncPos), motor_(motor), running_(false), output_(0),
+    :   options_(options), scopeEncPos_(scopeEncPos), motorEncPos_(motorEncPos), motor_(motor), running_(false), output_(0), lastAdjustPID_(0),
         pid_(&input_, &output_, &setpoint_, options.Kp_, options.Ki_, 0.0, P_ON_E, DIRECT, true)
 {
     pid_.SetOutputLimits(-8,10);
@@ -19,6 +22,63 @@ SDC_MotorAdapter::SDC_MotorAdapter(const Options &options, volatile long *scopeE
 // call once in setup()
 void SDC_MotorAdapter::Setup()
 {
+    lastAdjustPID_ = millis() - ADJUST_PID_TMO;
+}
+
+void SDC_MotorAdapter::AdjustPID()
+{
+    lastAdjustPID_ = millis();
+    if(speed_ == 0)
+        pid_.SetMode(MANUAL);
+    else
+    {
+        pid_.SetMode(AUTOMATIC);
+
+        double sampleTime = 1/((speed_ > 0) ? speed_ : -speed_);
+        double diff = refScopePos_ + speed_*(millis() - ts_) - *scopeEncPos_;
+
+        if(diff < 0)
+            diff = -diff;
+        if(diff > 25)
+        {
+            // very far from setpoint
+            pid_.SetSampleTime(100);
+            //pid_.SetTunings(options_.Kp_*18, 0, 0);
+            pid_.SetTunings(options_.Kp_*sampleTime/150, 0, 0);
+            pid_.SetOutputLimits(-DBL_MAX, DBL_MAX);
+        }
+        else if(diff > 200000/sampleTime)
+        {
+            // closer to setpoint
+            pid_.SetSampleTime(200);
+            //pid_.SetTunings(options_.Kp_*9, 0, 0);
+            pid_.SetTunings(options_.Kp_*sampleTime/300, 0, 0);
+            pid_.SetOutputLimits(-100,100);
+        }
+        else if(diff > 100000/sampleTime)
+        {
+            // even closer to setpoint
+            pid_.SetSampleTime(300);
+            //pid_.SetTunings(options_.Kp_*3, 0, 0);
+            pid_.SetTunings(options_.Kp_*sampleTime/1000, 0, 0);
+            pid_.SetOutputLimits(-8,10);
+        }
+        else if(sampleTime >= 100)
+        {
+            // regular use case
+            pid_.SetSampleTime(int(sampleTime/3));
+            pid_.SetTunings(options_.Kp_, options_.Ki_/3, 0);
+            pid_.SetOutputLimits(-8,10);
+        }
+        else
+        {
+            // very fast speed
+            double ratio = 100/sampleTime;
+            pid_.SetSampleTime(100);
+            pid_.SetTunings(options_.Kp_/ratio/10, 0, 0);
+            pid_.SetOutputLimits(-0.025,0.025);
+        }
+    }
 }
 
 // call periodically in loop()
@@ -27,9 +87,11 @@ bool SDC_MotorAdapter::Run()
 {
     if(running_ && motor_->IsRunning())
     {
-        long spos, mpos, ts;
-        DoGetPos(&spos, &mpos, &ts);
+        long ts = millis();
+        if(ts - lastAdjustPID_ > ADJUST_PID_TMO)
+            AdjustPID();
 
+        long spos = *scopeEncPos_;
         if(speed_ > 0)
         {
             setpoint_ = refScopePos_ + speed_*(ts - ts_);
@@ -40,33 +102,7 @@ bool SDC_MotorAdapter::Run()
             setpoint_ = -refScopePos_ - speed_*(ts - ts_);
             input_ = -spos;
         }
-
-        double diff = setpoint_ - input_;
-        if(diff < 0)
-            diff = -diff;
-        if(diff > 25)
-        {
-            pid_.SetSampleTime(100);
-            pid_.SetTunings(options_.Kp_*12, 0, 0);
-            pid_.SetOutputLimits(-198,200);
-        }
-        else if(diff > 10)
-        {
-            pid_.SetSampleTime(100);
-            pid_.SetTunings(options_.Kp_*6, 0, 0);
-            pid_.SetOutputLimits(-58,60);
-        }
-        else if(diff > 4)
-        {
-            pid_.SetSampleTime(300);
-            pid_.SetTunings(options_.Kp_*3, 0, 0);
-            pid_.SetOutputLimits(-28,30);
-        }
-        else
-            UpdateSpeed(speed_);
-
         pid_.Compute();
-
         motor_->SetSpeed(speed_ * options_.scopeToMotor_ * (1 + output_));
     }
     return true;
@@ -97,7 +133,8 @@ bool SDC_MotorAdapter::Start (double speed, MotionType *mt, Ref *ref)
         refScopePos_ = *scopeEncPos_;
         refMotorPos_ = r.upos_;
         ts_ = r.ts_;
-        UpdateSpeed(speed);
+        speed_ = speed;
+        AdjustPID();
         if(ref)
             *ref = Ref(refScopePos_, ts_);
     }
@@ -112,7 +149,8 @@ bool SDC_MotorAdapter::SetSpeed(double speed, Ref *ref)
         return true;
 
     DoGetPos(&refScopePos_, &refMotorPos_, &ts_);
-    UpdateSpeed(speed);
+    speed_ = speed;
+    AdjustPID();
     if(ref)
         *ref = Ref(refScopePos_, ts_);
     return motor_->SetSpeed(speed * options_.scopeToMotor_ * (1 + output_), NULL);
@@ -130,7 +168,8 @@ bool SDC_MotorAdapter::SetNextPos(long upos, long ts, Ref *ref)
         refScopePos_ = sposCurr;
         refMotorPos_ = mposCurr;
         ts_ = tsCurr;
-        UpdateSpeed((upos - refScopePos_)/(ts - ts_));
+        speed_ = (upos - refScopePos_)/(ts - ts_);
+        AdjustPID();
         if(ref)
             *ref = Ref(refScopePos_, ts_);
         return motor_->SetSpeed(speed_ * options_.scopeToMotor_ * (1 + output_), NULL);
@@ -145,7 +184,8 @@ void SDC_MotorAdapter::Stop()
         DoGetPos(&refScopePos_, &refMotorPos_, &ts_);
         motor_->Stop();
         running_ = false;
-        UpdateSpeed(0);
+        speed_ = 0;
+        AdjustPID();
     }
 }
 
@@ -154,29 +194,4 @@ void SDC_MotorAdapter::DoGetPos(long *spos, long *mpos, long *ts)
     *ts = millis();
     *spos = *scopeEncPos_;
     *mpos = *motorEncPos_;
-}
-
-void SDC_MotorAdapter::UpdateSpeed(double speed)
-{
-    speed_ = speed;
-    if(speed == 0)
-        pid_.SetMode(MANUAL);
-    else
-    {
-        pid_.SetMode(AUTOMATIC);
-        double sampleTime = 1/((speed > 0) ? speed : -speed);
-        if(sampleTime >= 100)
-        {
-            pid_.SetSampleTime(int(sampleTime/3));
-            pid_.SetTunings(options_.Kp_, options_.Ki_/3, 0);
-            pid_.SetOutputLimits(-8,10);
-        }
-        else
-        {
-            double ratio = 100/sampleTime;
-            pid_.SetSampleTime(100);
-            pid_.SetTunings(options_.Kp_/ratio/10, 0, 0);
-            pid_.SetOutputLimits(-0.025,0.025);
-        }
-    }
 }

@@ -10,7 +10,7 @@
 #include "SDC_Motor.h"
 
 SDC_Motor::SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, volatile long *encPos)
-    :   max_speed_(options.max_speed_), dirPin_(dirPin), speedPin_(speedPin), mt_(NULL), encPos_(encPos), running_(false),
+    :   maxSpeed_(options.maxSpeed_), dirPin_(dirPin), speedPin_(speedPin), mt_(NULL), encPos_(encPos), running_(false),
         pid_(&input_, &output_, &setpoint_, options.Kp_, options.Ki_, 0.0, P_ON_E, DIRECT)
 {
     pid_.SetOutputLimits(-255,255);

@@ -35,6 +35,7 @@ public:
 
     virtual bool IsRunning() const = 0;
     virtual bool GetPos(Ref *ref, long *setpoint = 0) const = 0;
+    virtual double GetMaxSpeed() const = 0;
 
     virtual bool Start (double speed,                       // start speed, in encoder units/ms
                         MotionType *mt,                     // motion callback
@@ -52,11 +53,11 @@ class SDC_Motor : public SDC_MotorItf
 public:
     struct Options
     {
-        double max_speed_;  // units/ms
+        double maxSpeed_;  // units/ms
         double Kp_, Ki_;
         Options() {}
         Options(double max_speed, double Kp, double Ki)
-            : max_speed_(max_speed), Kp_(Kp), Ki_(Ki) {}
+            : maxSpeed_(max_speed), Kp_(Kp), Ki_(Ki) {}
     };
 
     SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, volatile long *encPos);
@@ -71,13 +72,14 @@ public:
     // SDC_MotorItf
     bool IsRunning() const {return running_;}
     bool GetPos(Ref *ref, long *setpoint) const;
+    double GetMaxSpeed() const {return maxSpeed_;}
     bool Start (double speed, MotionType *mt, Ref *ref);
     bool SetSpeed(double speed, Ref *ref);
     bool SetNextPos(long upos, long ts, Ref *ref);
     void Stop();
 
 private:
-    double max_speed_;  // units/ms
+    double maxSpeed_;  // units/ms
     uint8_t dirPin_, speedPin_; // pins
     MotionType *mt_;
     volatile long *encPos_;
