@@ -1,3 +1,11 @@
+//
+// Arduino PID Library - Version 1.1.1
+// by Brett Beauregard <br3ttb@gmail.com> brettbeauregard.com
+//
+//
+// Slightly modified for my purposes: fNoTimeScaling parameter added (Alexey Bobkov)
+//
+
 #ifndef PID_v1_h
 #define PID_v1_h
 #define LIBRARY_VERSION	1.1.1
@@ -18,8 +26,9 @@ class PID
 
   //commonly used functions **************************************************************************
     PID(double*, double*, double*,        // * constructor.  links the PID to the Input, Output, and 
-        double, double, double, int, int);//   Setpoint.  Initial tuning parameters are also set here.
-                                          //   (overload for specifying proportional mode)
+        double, double, double, int, int, //   Setpoint.  Initial tuning parameters are also set here.
+        bool fNoTimeScaling = false);     //   (overload for specifying proportional mode)
+
 
     PID(double*, double*, double*,        // * constructor.  links the PID to the Input, Output, and 
         double, double, double, int);     //   Setpoint.  Initial tuning parameters are also set here
@@ -73,6 +82,7 @@ class PID
 
 	int controllerDirection;
 	int pOn;
+    bool noTimeScaling;
 
     double *myInput;              // * Pointers to the Input, Output, and Setpoint variables
     double *myOutput;             //   This creates a hard link between the variables and the 

@@ -9,20 +9,136 @@
 
 #include "SDC_EncPositionAdapter.h"
 
-SDC_EncPosAdapter::SDC_EncPosAdapter(double Kp, double Ki, volatile long *scopeEncPos, volatile long *motorEncPos, double motorToScope, SDC_Motor *motor)
-    :   scopeEncPos_(scopeEncPos), motorEncPos_(motorEncPos), motorToScope_(motorToScope), motor_(motor),
-        pid_(&input_, &output_, &setpoint_, Kp, Ki, 0, DIRECT)
+SDC_MotorAdapter::SDC_MotorAdapter(const Options &options, volatile long *scopeEncPos, volatile long *motorEncPos, SDC_MotorItf *motor)
+    :   options_(options), scopeEncPos_(scopeEncPos), motorEncPos_(motorEncPos), motor_(motor), running_(false), output_(0),
+        pid_(&input_, &output_, &setpoint_, options.Kp_, options.Ki_, 0.0, P_ON_E, DIRECT, true)
 {
+    pid_.SetOutputLimits(-3,5);
 }
 
 // call once in setup()
-void SDC_EncPosAdapter::Setup()
+void SDC_MotorAdapter::Setup()
 {
 }
 
 // call periodically in loop()
 // returns true if safe to do some long job
-bool SDC_EncPosAdapter::Run()
+bool SDC_MotorAdapter::Run()
 {
+    if(running_ && motor_->IsRunning())
+    {
+        long spos, mpos, ts;
+        DoGetPos(&spos, &mpos, &ts);
+
+        if(speed_ > 0)
+        {
+            setpoint_ = refScopePos_ + speed_*(ts - ts_);
+            input_ = spos;
+        }
+        else
+        {
+            setpoint_ = -refScopePos_ - speed_*(ts - ts_);
+            input_ = -spos;
+        }
+        pid_.Compute();
+
+        motor_->SetSpeed(speed_ * options_.scopeToMotor_ * (1 + output_));
+    }
     return true;
+}
+
+bool SDC_MotorAdapter::IsRunning() const
+{
+    return running_ && motor_->IsRunning();
+}
+
+bool SDC_MotorAdapter::GetPos(Ref *ref, long *setpoint) const
+{
+    if(ref)
+        *ref = Ref(*scopeEncPos_, millis());
+    if(setpoint)
+        //*setpoint = setpoint_;
+        *setpoint = output_ * 1000;
+    return motor_->IsRunning();
+}
+
+bool SDC_MotorAdapter::Start (double speed, MotionType *mt, Ref *ref)
+{
+    Ref r;
+    bool ok = motor_->Start(speed * options_.scopeToMotor_ * (1 + output_), mt, &r);
+    if(ok)
+    {
+        running_ = true;
+        refScopePos_ = *scopeEncPos_;
+        refMotorPos_ = r.upos_;
+        ts_ = r.ts_;
+        UpdateSpeed(speed);
+        if(ref)
+            *ref = Ref(refScopePos_, ts_);
+    }
+    return ok;
+}
+
+bool SDC_MotorAdapter::SetSpeed(double speed, Ref *ref)
+{
+    if(!running_ || !motor_->IsRunning())
+        return false;
+    if(speed == speed_)
+        return true;
+
+    DoGetPos(&refScopePos_, &refMotorPos_, &ts_);
+    UpdateSpeed(speed);
+    if(ref)
+        *ref = Ref(refScopePos_, ts_);
+    return motor_->SetSpeed(speed * options_.scopeToMotor_ * (1 + output_), NULL);
+}
+
+bool SDC_MotorAdapter::SetNextPos(long upos, long ts, Ref *ref)
+{
+    if(!running_ || !motor_->IsRunning())
+        return false;
+
+    long sposCurr, mposCurr, tsCurr;
+    DoGetPos(&sposCurr, &mposCurr, &tsCurr);
+    if((ts > tsCurr ? ts - tsCurr : tsCurr - ts) > 10)   // ignore if timestamps are closer than 10 ms, due to bad accuracy
+    {
+        refScopePos_ = sposCurr;
+        refMotorPos_ = mposCurr;
+        ts_ = tsCurr;
+        UpdateSpeed((upos - refScopePos_)/(ts - ts_));
+        if(ref)
+            *ref = Ref(refScopePos_, ts_);
+        return motor_->SetSpeed(speed_ * options_.scopeToMotor_ * (1 + output_), NULL);
+    }
+    return false;
+}
+
+void SDC_MotorAdapter::Stop()
+{
+    if(running_ && motor_->IsRunning())
+    {
+        DoGetPos(&refScopePos_, &refMotorPos_, &ts_);
+        motor_->Stop();
+        running_ = false;
+        UpdateSpeed(0);
+    }
+}
+
+void SDC_MotorAdapter::DoGetPos(long *spos, long *mpos, long *ts)
+{
+    *ts = millis();
+    *spos = *scopeEncPos_;
+    *mpos = *motorEncPos_;
+}
+
+void SDC_MotorAdapter::UpdateSpeed(double speed)
+{
+    speed_ = speed;
+    if(speed == 0)
+        pid_.SetMode(MANUAL);
+    else
+    {
+        pid_.SetMode(AUTOMATIC);
+        pid_.SetSampleTime(1/(speed > 0 ? speed : -speed));
+    }
 }

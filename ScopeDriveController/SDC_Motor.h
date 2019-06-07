@@ -11,21 +11,55 @@
 
 #include "PID_v1.h"
 
-///////////////////////////////////////////////////////////////////////////////////////
-// motor class
-class SDC_Motor
+class SDC_MotorItf
 {
 public:
     // motion law
     class MotionType
     {
     public:
-        virtual bool    CanMove(const SDC_Motor *m) const   = 0;    // can the motor move?
-        virtual void    MotorStarted(SDC_Motor *m)          = 0;    // action on motor started
-        virtual void    MotorStopped(SDC_Motor *m)          = 0;    // action on motor stopped
+        virtual bool    CanMove(const SDC_MotorItf *m) const    = 0;    // can the motor move?
+        virtual void    MotorStarted(SDC_MotorItf *m)           = 0;    // action on motor started
+        virtual void    MotorStopped(SDC_MotorItf *m)           = 0;    // action on motor stopped
     };
 
-    SDC_Motor(double max_speed, double Kp, double Ki, uint8_t dirPin, uint8_t speedPin, MotionType *mt, volatile long *encPos);
+    struct Ref
+    {
+        long upos_;     // position in encoder units
+        long ts_;       // timestamp in milliseconds
+        Ref() {}
+        Ref(long upos, long ts) : upos_(upos), ts_(ts) {}
+    };
+
+    virtual ~SDC_MotorItf() {}
+
+    virtual bool IsRunning() const = 0;
+    virtual bool GetPos(Ref *ref, long *setpoint = 0) const = 0;
+
+    virtual bool Start (double speed,                       // start speed, in encoder units/ms
+                        MotionType *mt,                     // motion callback
+                        Ref *ref = NULL) = 0;               // starting position and timestamp
+    virtual bool SetSpeed(double speed, Ref *ref = NULL);   // speed is in encoder units/ms
+    virtual bool SetNextPos(long upos, long ts, Ref *ref = NULL) = 0;
+    virtual void Stop() = 0;
+};
+
+
+///////////////////////////////////////////////////////////////////////////////////////
+// motor class
+class SDC_Motor : public SDC_MotorItf
+{
+public:
+    struct Options
+    {
+        double max_speed_;  // units/ms
+        double Kp_, Ki_;
+        Options() {}
+        Options(double max_speed, double Kp, double Ki)
+            : max_speed_(max_speed), Kp_(Kp), Ki_(Ki) {}
+    };
+
+    SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, volatile long *encPos);
 
     // call once in setup()
     void Setup();
@@ -34,13 +68,12 @@ public:
     // returns true if safe to do some long job
     bool Run();
 
-    bool Start (double speed,       // start speed, in encoder units/ms
-                long *upos,         // starting position, in encoder units
-                long *ts);          // starting timestamp, in ms (returned by millis())
-
+    // SDC_MotorItf
     bool IsRunning() const {return running_;}
-    bool GetPos(long *upos, long *ts, long *setpoint);
-    bool SetNextPos(long upos, long ts);
+    bool GetPos(Ref *ref, long *setpoint) const;
+    bool Start (double speed, MotionType *mt, Ref *ref);
+    bool SetSpeed(double speed, Ref *ref);
+    bool SetNextPos(long upos, long ts, Ref *ref);
     void Stop();
 
 private:

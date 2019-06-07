@@ -12,10 +12,18 @@
 #include "PID_v1.h"
 #include "SDC_Motor.h"
 
-class SDC_EncPosAdapter
+class SDC_MotorAdapter : public SDC_MotorItf
 {
 public:
-    SDC_EncPosAdapter(double Kp, double Ki, volatile long *scopeEncPos, volatile long *motorEncPos, double motorToScope, SDC_Motor *motor);
+    struct Options
+    {
+        double scopeToMotor_;
+        double Kp_, Ki_;
+        Options() {}
+        Options(double scopeToMotor, double Kp, double Ki) : scopeToMotor_(scopeToMotor), Kp_(Kp), Ki_(Ki) {}
+    };
+
+    SDC_MotorAdapter(const Options &options, volatile long *scopeEncPos, volatile long *motorEncPos, SDC_MotorItf *motor);
 
     // call once in setup()
     void Setup();
@@ -24,13 +32,29 @@ public:
     // returns true if safe to do some long job
     bool Run();
 
-private:
-    volatile long *scopeEncPos_, *motorEncPos_;
-    double motorToScope_;
-    SDC_Motor *motor_;
+    // SDC_MotorItf
+    bool IsRunning() const;
+    bool GetPos(Ref *ref, long *setpoint) const;
+    bool Start (double speed, MotionType *mt, Ref *ref);
+    bool SetSpeed(double speed, Ref *ref);
+    bool SetNextPos(long upos, long ts, Ref *ref);
+    void Stop();
 
-    PID pid_;
+private:
+    Options options_;
+    volatile long *scopeEncPos_, *motorEncPos_;
+    SDC_MotorItf *motor_;
+
+    bool running_;
+    long refScopePos_;
+    long refMotorPos_;
+    long ts_;
+    double speed_;      // units/ms
     double setpoint_, input_, output_;
+    PID pid_;
+
+    void DoGetPos(long *spos, long *mpos, long *ts);
+    void UpdateSpeed(double speed);
 };
 
 

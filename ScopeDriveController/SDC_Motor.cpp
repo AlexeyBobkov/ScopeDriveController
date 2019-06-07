@@ -9,9 +9,9 @@
 
 #include "SDC_Motor.h"
 
-SDC_Motor::SDC_Motor(double max_speed, double Kp, double Ki, uint8_t dirPin, uint8_t speedPin, MotionType *mt, volatile long *encPos)
-    :   max_speed_(max_speed), dirPin_(dirPin), speedPin_(speedPin), mt_(mt), encPos_(encPos), running_(false),
-        pid_(&input_, &output_, &setpoint_, Kp, Ki, 0, DIRECT)
+SDC_Motor::SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, volatile long *encPos)
+    :   max_speed_(options.max_speed_), dirPin_(dirPin), speedPin_(speedPin), mt_(NULL), encPos_(encPos), running_(false),
+        pid_(&input_, &output_, &setpoint_, options.Kp_, options.Ki_, 0.0, P_ON_E, DIRECT)
 {
     pid_.SetOutputLimits(-255,255);
     pid_.SetSampleTime(100);
@@ -38,8 +38,9 @@ bool SDC_Motor::Run()
         return true;
     if(mt_ && !mt_->CanMove(this))
     {
+        MotionType *mt = mt_;
         Stop();
-        mt_->MotorStopped(this);
+        mt->MotorStopped(this);
         return true;
     }
 
@@ -65,26 +66,37 @@ bool SDC_Motor::Run()
     return true;
 }
 
-bool SDC_Motor::Start (double speed, long *upos, long *ts)
+bool SDC_Motor::GetPos(Ref *ref, long *setpoint) const
+{
+    if(ref)
+        *ref = Ref(*encPos_, millis());
+    if(setpoint)
+        *setpoint = (long)setpoint_;
+    return running_;
+}
+
+bool SDC_Motor::Start (double speed, MotionType *mt, Ref *ref)
 {
     if(running_)
         return false;
 
-    if(mt_ && !mt_->CanMove(this))
+    if(mt && !mt->CanMove(this))
         return false;
 
     running_ = true;
+    mt_ = mt;
     if(mt_)
         mt_->MotorStarted(this);
 
     DoGetPos(&upos_, &ts_);
-    *upos = upos_;
-    *ts = ts_;
+    if(ref)
+        *ref = Ref(upos_, ts_);
     speed_ = speed;
 
     setpoint_ = input_ = upos_;
     pid_.SetMode(AUTOMATIC);
 
+    /*
     // start motor
     int sp;
     uint8_t direction;
@@ -104,32 +116,49 @@ bool SDC_Motor::Start (double speed, long *upos, long *ts)
         sp = 0;
     digitalWrite(dirPin_, direction);
     analogWrite(speedPin_, sp);
+    */
 
     return true;
 }
 
-bool SDC_Motor::GetPos(long *upos, long *ts, long *setpoint)
+bool SDC_Motor::SetSpeed(double speed, Ref *ref)
 {
-    *ts = millis();
-    *upos = *encPos_;
-    *setpoint = (long)setpoint_;
-    return running_;
-}
-
-bool SDC_Motor::SetNextPos(long upos, long ts)
-{
-    if(!running_ || ts <= ts_)
+    if(!running_)
         return false;
 
-    speed_ = (upos - upos_)/(ts - ts_);
-    upos_ = upos;
-    ts_ = ts;
+    if(speed != speed_)
+    {
+        DoGetPos(&upos_, &ts_);
+        speed_ = speed;
+        if(ref)
+            *ref = Ref(upos_, ts_);
+    }
     return true;
+}
+
+bool SDC_Motor::SetNextPos(long upos, long ts, Ref *ref)
+{
+    if(!running_)
+        return false;
+
+    long uposCurr, tsCurr;
+    DoGetPos(&uposCurr, &tsCurr);
+    if((ts > tsCurr ? ts - tsCurr : tsCurr - ts) > 10)   // ignore if timestamps are closer than 10 ms, due to bad accuracy
+    {
+        ts_ = tsCurr;
+        upos_ = uposCurr;
+        speed_ = double(upos - uposCurr)/double(ts - tsCurr);
+        if(ref)
+            *ref = Ref(uposCurr, tsCurr);
+        return true;
+    }
+    return false;
 }
 
 void SDC_Motor::Stop()
 {
     running_ = false;
+    mt_ = NULL;
     DoGetPos(&upos_, &ts_);
     speed_ = 0;
     pid_.SetMode(MANUAL);
