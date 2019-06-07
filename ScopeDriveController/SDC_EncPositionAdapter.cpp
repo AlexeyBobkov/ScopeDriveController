@@ -13,7 +13,7 @@ SDC_MotorAdapter::SDC_MotorAdapter(const Options &options, volatile long *scopeE
     :   options_(options), scopeEncPos_(scopeEncPos), motorEncPos_(motorEncPos), motor_(motor), running_(false), output_(0),
         pid_(&input_, &output_, &setpoint_, options.Kp_, options.Ki_, 0.0, P_ON_E, DIRECT, true)
 {
-    pid_.SetOutputLimits(-3,5);
+    pid_.SetOutputLimits(-8,10);
 }
 
 // call once in setup()
@@ -40,6 +40,31 @@ bool SDC_MotorAdapter::Run()
             setpoint_ = -refScopePos_ - speed_*(ts - ts_);
             input_ = -spos;
         }
+
+        double diff = setpoint_ - input_;
+        if(diff < 0)
+            diff = -diff;
+        if(diff > 25)
+        {
+            pid_.SetSampleTime(100);
+            pid_.SetTunings(options_.Kp_*12, 0, 0);
+            pid_.SetOutputLimits(-198,200);
+        }
+        else if(diff > 10)
+        {
+            pid_.SetSampleTime(100);
+            pid_.SetTunings(options_.Kp_*6, 0, 0);
+            pid_.SetOutputLimits(-58,60);
+        }
+        else if(diff > 4)
+        {
+            pid_.SetSampleTime(300);
+            pid_.SetTunings(options_.Kp_*3, 0, 0);
+            pid_.SetOutputLimits(-28,30);
+        }
+        else
+            UpdateSpeed(speed_);
+
         pid_.Compute();
 
         motor_->SetSpeed(speed_ * options_.scopeToMotor_ * (1 + output_));
@@ -139,6 +164,19 @@ void SDC_MotorAdapter::UpdateSpeed(double speed)
     else
     {
         pid_.SetMode(AUTOMATIC);
-        pid_.SetSampleTime(1/(speed > 0 ? speed : -speed));
+        double sampleTime = 1/((speed > 0) ? speed : -speed);
+        if(sampleTime >= 100)
+        {
+            pid_.SetSampleTime(int(sampleTime/3));
+            pid_.SetTunings(options_.Kp_, options_.Ki_/3, 0);
+            pid_.SetOutputLimits(-8,10);
+        }
+        else
+        {
+            double ratio = 100/sampleTime;
+            pid_.SetSampleTime(100);
+            pid_.SetTunings(options_.Kp_/ratio/10, 0, 0);
+            pid_.SetOutputLimits(-0.025,0.025);
+        }
     }
 }
