@@ -62,11 +62,11 @@ IntlkMotionType intlk;
 // As a real motor is not ideal and has some threshold voltage to start rotation, it may be better to make the Ki smaller than the theoretical value.
 // The system stabilizes slower but oscillates less on slow speeds. (Is oscillation on slow speed really a problem?)
 //
-SDC_Motor motorALT(SDC_Motor::Options(64*RESOLUTION/60000, 0.5, 0.4), DIR1_OPIN, PWMA_OPIN, SDC_GetMotorAltEncoderPositionPtr());   // 65rpm
-SDC_Motor motorAZM(SDC_Motor::Options(64*RESOLUTION/60000, 0.5, 0.4), DIR2_OPIN, PWMB_OPIN, SDC_GetMotorAzmEncoderPositionPtr());   // 65rpm
+SDC_Motor motorALT(SDC_Motor::Options(50*RESOLUTION/60000, 0.5, 0.4), DIR1_OPIN, PWMA_OPIN, SDC_GetMotorAltEncoderPositionPtr());   // 65rpm
+SDC_Motor motorAZM(SDC_Motor::Options(50*RESOLUTION/60000, 0.5, 0.4), DIR2_OPIN, PWMB_OPIN, SDC_GetMotorAzmEncoderPositionPtr());   // 65rpm
 
 SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(224.9, 0.2, 0.01), SDC_GetAltEncoderPositionPtr(), SDC_GetMotorAltEncoderPositionPtr(), &motorALT);
-SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(175.6, 0.7, 0.09), SDC_GetAzmEncoderPositionPtr(), SDC_GetMotorAzmEncoderPositionPtr(), &motorAZM);
+SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(181.0, 0.5, 0.06), SDC_GetAzmEncoderPositionPtr(), SDC_GetMotorAzmEncoderPositionPtr(), &motorAZM);
 
 void setup()
 {

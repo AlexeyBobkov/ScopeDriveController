@@ -10,10 +10,12 @@
 
 #include "SDC_EncPositionAdapter.h"
 
-const long ADJUST_PID_TMO = 1000;
+const long ADJUST_PID_TMO_REGULAR = 3000;
+const long ADJUST_PID_TMO_RETRACK = 1000;
 
 SDC_MotorAdapter::SDC_MotorAdapter(const Options &options, volatile long *scopeEncPos, volatile long *motorEncPos, SDC_MotorItf *motor)
-    :   options_(options), scopeEncPos_(scopeEncPos), motorEncPos_(motorEncPos), motor_(motor), running_(false), output_(0), lastAdjustPID_(0),
+    :   options_(options), scopeEncPos_(scopeEncPos), motorEncPos_(motorEncPos), motor_(motor),
+        maxSpeed_(motor_->GetMaxSpeed() / options_.scopeToMotor_), running_(false), output_(0), lastAdjustPID_(0), regularTmo_(true), maxOut_(DBL_MAX - 1),
         pid_(&input_, &output_, &setpoint_, options.Kp_, options.Ki_, 0.0, P_ON_E, DIRECT, true)
 {
     pid_.SetOutputLimits(-8,10);
@@ -22,7 +24,20 @@ SDC_MotorAdapter::SDC_MotorAdapter(const Options &options, volatile long *scopeE
 // call once in setup()
 void SDC_MotorAdapter::Setup()
 {
-    lastAdjustPID_ = millis() - ADJUST_PID_TMO;
+    lastAdjustPID_ = millis() - ADJUST_PID_TMO_REGULAR;
+}
+
+void SDC_MotorAdapter::UpdateSpeed(double speed)
+{
+    if(speed > maxSpeed_)
+        speed = maxSpeed_;
+    else if(speed < -maxSpeed_)
+        speed = -maxSpeed_;
+    speed_ = speed;
+    if(speed_ == 0)
+        maxOut_ = DBL_MAX - 1;
+    else
+        maxOut_ = maxSpeed_/(speed_ > 0 ? speed_ : -speed_);
 }
 
 void SDC_MotorAdapter::AdjustPID()
@@ -32,52 +47,71 @@ void SDC_MotorAdapter::AdjustPID()
         pid_.SetMode(MANUAL);
     else
     {
+        if(pid_.GetMode() == MANUAL)
+            output_ = 0;
         pid_.SetMode(AUTOMATIC);
 
-        double sampleTime = 1/((speed_ > 0) ? speed_ : -speed_);
         double diff = refScopePos_ + speed_*(millis() - ts_) - *scopeEncPos_;
-
         if(diff < 0)
             diff = -diff;
-        if(diff > 25)
+
+        double sampleTime = 1/((speed_ > 0) ? speed_ : -speed_);
+        const double diff1 = 25;
+        const double diff2 = sampleTime > 14000 ? 200000/sampleTime : 14;
+        const double diff3 = sampleTime > 14000 ? 100000/sampleTime : 7;
+        double mOut = 0, maxOutL = maxOut_/3;
+
+        if(diff > diff1)
         {
             // very far from setpoint
+            regularTmo_ = false;
             pid_.SetSampleTime(100);
             //pid_.SetTunings(options_.Kp_*18, 0, 0);
             pid_.SetTunings(options_.Kp_*sampleTime/150, 0, 0);
-            pid_.SetOutputLimits(-DBL_MAX, DBL_MAX);
+            mOut = maxOut_;
         }
-        else if(diff > 200000/sampleTime)
+        else if(diff > diff2)
         {
             // closer to setpoint
+            regularTmo_ = false;
             pid_.SetSampleTime(200);
             //pid_.SetTunings(options_.Kp_*9, 0, 0);
             pid_.SetTunings(options_.Kp_*sampleTime/300, 0, 0);
-            pid_.SetOutputLimits(-100,100);
+            mOut = maxOutL;
         }
-        else if(diff > 100000/sampleTime)
+        else if(diff > diff3)
         {
             // even closer to setpoint
+            regularTmo_ = false;
             pid_.SetSampleTime(300);
             //pid_.SetTunings(options_.Kp_*3, 0, 0);
             pid_.SetTunings(options_.Kp_*sampleTime/1000, 0, 0);
-            pid_.SetOutputLimits(-8,10);
+            mOut = maxOutL < 8 ? maxOutL : 8;
         }
-        else if(sampleTime >= 100)
+        else if(sampleTime >= 200)
         {
             // regular use case
+            regularTmo_ = true;
+            //if(pid_.GetKi() == 0)
+            //    pid_.SetOutputLimits(0,0);  // reset integral sum
             pid_.SetSampleTime(int(sampleTime/3));
             pid_.SetTunings(options_.Kp_, options_.Ki_/3, 0);
-            pid_.SetOutputLimits(-8,10);
+            mOut = maxOutL < 8 ? maxOutL : 8;
         }
         else
         {
             // very fast speed
-            double ratio = 100/sampleTime;
-            pid_.SetSampleTime(100);
-            pid_.SetTunings(options_.Kp_/ratio/10, 0, 0);
-            pid_.SetOutputLimits(-0.025,0.025);
+            regularTmo_ = false;
+            //double ratio = 100/sampleTime;
+            //pid_.SetSampleTime(100);
+            //pid_.SetTunings(options_.Kp_/ratio/10, 0, 0);
+            pid_.SetSampleTime(int(sampleTime));
+            pid_.SetTunings(options_.Kp_/10, 0, 0);
+            mOut = maxOutL < 0.025 ? maxOutL : 0.025;
+            pid_.SetOutputLimits(-mOut, mOut);
+            return;
         }
+        pid_.SetOutputLimits(-mOut - 1, mOut - 1);
     }
 }
 
@@ -88,9 +122,6 @@ bool SDC_MotorAdapter::Run()
     if(running_ && motor_->IsRunning())
     {
         long ts = millis();
-        if(ts - lastAdjustPID_ > ADJUST_PID_TMO)
-            AdjustPID();
-
         long spos = *scopeEncPos_;
         if(speed_ > 0)
         {
@@ -102,6 +133,9 @@ bool SDC_MotorAdapter::Run()
             setpoint_ = -refScopePos_ - speed_*(ts - ts_);
             input_ = -spos;
         }
+
+        if(ts - lastAdjustPID_ > regularTmo_ ? ADJUST_PID_TMO_REGULAR : ADJUST_PID_TMO_RETRACK)
+            AdjustPID();
         pid_.Compute();
         motor_->SetSpeed(speed_ * options_.scopeToMotor_ * (1 + output_));
     }
@@ -133,7 +167,7 @@ bool SDC_MotorAdapter::Start (double speed, MotionType *mt, Ref *ref)
         refScopePos_ = *scopeEncPos_;
         refMotorPos_ = r.upos_;
         ts_ = r.ts_;
-        speed_ = speed;
+        UpdateSpeed(speed);
         AdjustPID();
         if(ref)
             *ref = Ref(refScopePos_, ts_);
@@ -149,7 +183,7 @@ bool SDC_MotorAdapter::SetSpeed(double speed, Ref *ref)
         return true;
 
     DoGetPos(&refScopePos_, &refMotorPos_, &ts_);
-    speed_ = speed;
+    UpdateSpeed(speed);
     AdjustPID();
     if(ref)
         *ref = Ref(refScopePos_, ts_);
@@ -168,7 +202,7 @@ bool SDC_MotorAdapter::SetNextPos(long upos, long ts, Ref *ref)
         refScopePos_ = sposCurr;
         refMotorPos_ = mposCurr;
         ts_ = tsCurr;
-        speed_ = (upos - refScopePos_)/(ts - ts_);
+        UpdateSpeed((upos - refScopePos_)/(ts - ts_));
         AdjustPID();
         if(ref)
             *ref = Ref(refScopePos_, ts_);

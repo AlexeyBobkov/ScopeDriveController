@@ -46,6 +46,7 @@ private:
     volatile long *scopeEncPos_, *motorEncPos_;
     SDC_MotorItf *motor_;
 
+    double maxSpeed_;
     bool running_;
     long refScopePos_;
     long refMotorPos_;
@@ -53,9 +54,12 @@ private:
     double speed_;      // units/ms
     double setpoint_, input_, output_;
     long lastAdjustPID_;
+    bool regularTmo_;
+    double maxOut_;
     PID pid_;
 
     void DoGetPos(long *spos, long *mpos, long *ts);
+    void UpdateSpeed(double speed);
     void AdjustPID();
 };
 
