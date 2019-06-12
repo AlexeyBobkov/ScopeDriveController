@@ -38,12 +38,12 @@ static void printHex2(unsigned long v)
     Serial.write(buf, 4);
 }
 
-class IntlkMotionType : public SDC_Motor::MotionType
+class IntlkMotionType : public SDC_MotionType
 {
 public:
-    virtual bool    CanMove(const SDC_MotorItf*) const  {return digitalRead(SWITCH_IPIN) == 0;}
-    virtual void    MotorStarted(SDC_MotorItf*)         {}
-    virtual void    MotorStopped(SDC_MotorItf*)         {MakeSound(400);}
+    virtual bool    CanMove(const SDC_MotorItf*) const              {return digitalRead(SWITCH_IPIN) == 0;}
+    virtual void    MotorStarted(SDC_MotorItf*)                     {}
+    virtual void    MotorStopped(SDC_MotorItf*, bool byStopCommand) {if(!byStopCommand) MakeSound(400);}
 };
 IntlkMotionType intlk;
 
@@ -66,7 +66,7 @@ SDC_Motor motorALT(SDC_Motor::Options(50*RESOLUTION/60000, 0.5, 0.4), DIR1_OPIN,
 SDC_Motor motorAZM(SDC_Motor::Options(50*RESOLUTION/60000, 0.5, 0.4), DIR2_OPIN, PWMB_OPIN, SDC_GetMotorAzmEncoderPositionPtr());   // 65rpm
 
 SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(224.9, 0.2, 0.01), SDC_GetAltEncoderPositionPtr(), SDC_GetMotorAltEncoderPositionPtr(), &motorALT);
-SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(181.0, 0.5, 0.06), SDC_GetAzmEncoderPositionPtr(), SDC_GetMotorAzmEncoderPositionPtr(), &motorAZM);
+SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(181.0, 0.3, 0.01), SDC_GetAzmEncoderPositionPtr(), SDC_GetMotorAzmEncoderPositionPtr(), &motorAZM);
 
 void setup()
 {

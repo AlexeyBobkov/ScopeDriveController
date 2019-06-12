@@ -11,18 +11,19 @@
 
 #include "PID_v1.h"
 
+// motion law
+class SDC_MotorItf;
+class SDC_MotionType
+{
+public:
+    virtual bool    CanMove(const SDC_MotorItf *m) const                = 0;    // can the motor move?
+    virtual void    MotorStarted(SDC_MotorItf *m)                       = 0;    // action on motor started
+    virtual void    MotorStopped(SDC_MotorItf *m, bool byStopCommand)   = 0;    // action on motor stopped
+};
+
 class SDC_MotorItf
 {
 public:
-    // motion law
-    class MotionType
-    {
-    public:
-        virtual bool    CanMove(const SDC_MotorItf *m) const    = 0;    // can the motor move?
-        virtual void    MotorStarted(SDC_MotorItf *m)           = 0;    // action on motor started
-        virtual void    MotorStopped(SDC_MotorItf *m)           = 0;    // action on motor stopped
-    };
-
     struct Ref
     {
         long upos_;     // position in encoder units
@@ -38,7 +39,7 @@ public:
     virtual double GetMaxSpeed() const = 0;
 
     virtual bool Start (double speed,                       // start speed, in encoder units/ms
-                        MotionType *mt,                     // motion callback
+                        SDC_MotionType *mt,                 // motion callback
                         Ref *ref = NULL) = 0;               // starting position and timestamp
     virtual bool SetSpeed(double speed, Ref *ref = NULL);   // speed is in encoder units/ms
     virtual bool SetNextPos(long upos, long ts, Ref *ref = NULL) = 0;
@@ -73,7 +74,7 @@ public:
     bool IsRunning() const {return running_;}
     bool GetPos(Ref *ref, long *setpoint) const;
     double GetMaxSpeed() const {return maxSpeed_;}
-    bool Start (double speed, MotionType *mt, Ref *ref);
+    bool Start (double speed, SDC_MotionType *mt, Ref *ref);
     bool SetSpeed(double speed, Ref *ref);
     bool SetNextPos(long upos, long ts, Ref *ref);
     void Stop();
@@ -81,7 +82,7 @@ public:
 private:
     double maxSpeed_;  // units/ms
     uint8_t dirPin_, speedPin_; // pins
-    MotionType *mt_;
+    SDC_MotionType *mt_;
     volatile long *encPos_;
 
     bool running_;
@@ -91,6 +92,7 @@ private:
     PID pid_;
     double setpoint_, input_, output_;
 
+    void DoStop();
     void DoGetPos(long *upos, long *ts);
 };
 

@@ -12,7 +12,7 @@
 #include "PID_v1.h"
 #include "SDC_Motor.h"
 
-class SDC_MotorAdapter : public SDC_MotorItf
+class SDC_MotorAdapter : public SDC_MotorItf, private SDC_MotionType
 {
 public:
     struct Options
@@ -36,10 +36,15 @@ public:
     bool IsRunning() const;
     bool GetPos(Ref *ref, long *setpoint) const;
     double GetMaxSpeed() const {return motor_->GetMaxSpeed() / options_.scopeToMotor_;}
-    bool Start (double speed, MotionType *mt, Ref *ref);
+    bool Start (double speed, SDC_MotionType *mt, Ref *ref);
     bool SetSpeed(double speed, Ref *ref);
     bool SetNextPos(long upos, long ts, Ref *ref);
     void Stop();
+
+    // MotionType
+    bool CanMove(const SDC_MotorItf *m) const               {return mt_ ? mt_->CanMove(m) : true;}
+    void MotorStarted(SDC_MotorItf *m)                      {if(mt_) mt_->MotorStarted(m); running_ = true;}
+    void MotorStopped(SDC_MotorItf *m, bool byStopCommand)  {if(mt_) mt_->MotorStopped(m, byStopCommand); running_ = false;}
 
 private:
     Options options_;
@@ -48,6 +53,7 @@ private:
 
     double maxSpeed_;
     bool running_;
+    SDC_MotionType *mt_;
     long refScopePos_;
     long refMotorPos_;
     long ts_;

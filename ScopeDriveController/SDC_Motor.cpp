@@ -38,9 +38,9 @@ bool SDC_Motor::Run()
         return true;
     if(mt_ && !mt_->CanMove(this))
     {
-        MotionType *mt = mt_;
-        Stop();
-        mt->MotorStopped(this);
+        SDC_MotionType *mt = mt_;
+        DoStop();
+        mt->MotorStopped(this, false);
         return true;
     }
 
@@ -75,7 +75,7 @@ bool SDC_Motor::GetPos(Ref *ref, long *setpoint) const
     return running_;
 }
 
-bool SDC_Motor::Start (double speed, MotionType *mt, Ref *ref)
+bool SDC_Motor::Start (double speed, SDC_MotionType *mt, Ref *ref)
 {
     if(running_)
         return false;
@@ -95,29 +95,6 @@ bool SDC_Motor::Start (double speed, MotionType *mt, Ref *ref)
 
     setpoint_ = input_ = upos_;
     pid_.SetMode(AUTOMATIC);
-
-    /*
-    // start motor
-    int sp;
-    uint8_t direction;
-    if(speed_ > 0)
-    {
-        sp = int(speed_*255/max_speed_ + 0.5);
-        direction = HIGH;
-    }
-    else
-    {
-        sp = int(-speed_*255/max_speed_ + 0.5);
-        direction = LOW;
-    }
-    if(sp > 255)
-        sp = 255;
-    else if (sp < 0)
-        sp = 0;
-    digitalWrite(dirPin_, direction);
-    analogWrite(speedPin_, sp);
-    */
-
     return true;
 }
 
@@ -143,7 +120,7 @@ bool SDC_Motor::SetNextPos(long upos, long ts, Ref *ref)
 
     long uposCurr, tsCurr;
     DoGetPos(&uposCurr, &tsCurr);
-    if((ts > tsCurr ? ts - tsCurr : tsCurr - ts) > 10)   // ignore if timestamps are closer than 10 ms, due to bad accuracy
+    if((ts > tsCurr ? ts - tsCurr : tsCurr - ts) > 10)   // ignore if timestamps that are closer than 10 ms, due to bad accuracy
     {
         ts_ = tsCurr;
         upos_ = uposCurr;
@@ -156,6 +133,14 @@ bool SDC_Motor::SetNextPos(long upos, long ts, Ref *ref)
 }
 
 void SDC_Motor::Stop()
+{
+    SDC_MotionType *mt = mt_;
+    DoStop();
+    if(mt)
+        mt->MotorStopped(this, true);
+}
+
+void SDC_Motor::DoStop()
 {
     running_ = false;
     mt_ = NULL;
