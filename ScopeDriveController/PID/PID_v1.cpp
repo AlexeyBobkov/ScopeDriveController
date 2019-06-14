@@ -5,11 +5,6 @@
  * This Library is licensed under a GPLv3 License
  **********************************************************************************************/
 
-//
-// Slightly modified for my purposes: fNoTimeScaling parameter added (Alexey Bobkov)
-//
-
-
 #if ARDUINO >= 100
   #include "Arduino.h"
 #else
@@ -23,13 +18,12 @@
  *    reliable defaults, so we need to have the user set them.
  ***************************************************************************/
 PID::PID(double* Input, double* Output, double* Setpoint,
-        double Kp, double Ki, double Kd, int POn, int ControllerDirection, bool fNoTimeScaling)
+        double Kp, double Ki, double Kd, int POn, int ControllerDirection)
 {
     myOutput = Output;
     myInput = Input;
     mySetpoint = Setpoint;
     inAuto = false;
-    noTimeScaling = fNoTimeScaling;
 
     PID::SetOutputLimits(0, 255);				//default output limit corresponds to
 												//the arduino pwm limits
@@ -49,7 +43,7 @@ PID::PID(double* Input, double* Output, double* Setpoint,
 
 PID::PID(double* Input, double* Output, double* Setpoint,
         double Kp, double Ki, double Kd, int ControllerDirection)
-    :PID::PID(Input, Output, Setpoint, Kp, Ki, Kd, P_ON_E, ControllerDirection, false)
+    :PID::PID(Input, Output, Setpoint, Kp, Ki, Kd, P_ON_E, ControllerDirection)
 {
 
 }
@@ -114,19 +108,10 @@ void PID::SetTunings(double Kp, double Ki, double Kd, int POn)
 
    dispKp = Kp; dispKi = Ki; dispKd = Kd;
 
-   if(!noTimeScaling)
-   {
-       double SampleTimeInSec = ((double)SampleTime)/1000;
-       kp = Kp;
-       ki = Ki * SampleTimeInSec;
-       kd = Kd / SampleTimeInSec;
-   }
-   else
-   {
-       kp = Kp;
-       ki = Ki;
-       kd = Kd;
-   }
+   double SampleTimeInSec = ((double)SampleTime)/1000;
+   kp = Kp;
+   ki = Ki * SampleTimeInSec;
+   kd = Kd / SampleTimeInSec;
 
   if(controllerDirection ==REVERSE)
    {
@@ -150,14 +135,10 @@ void PID::SetSampleTime(int NewSampleTime)
 {
    if (NewSampleTime > 0)
    {
-
-      if(!noTimeScaling)
-      {
-          double ratio  = (double)NewSampleTime
-                          / (double)SampleTime;
-          ki *= ratio;
-          kd /= ratio;
-      }
+      double ratio  = (double)NewSampleTime
+                      / (double)SampleTime;
+      ki *= ratio;
+      kd /= ratio;
       SampleTime = (unsigned long)NewSampleTime;
    }
 }

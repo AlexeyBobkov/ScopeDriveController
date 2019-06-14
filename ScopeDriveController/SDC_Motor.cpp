@@ -66,12 +66,14 @@ bool SDC_Motor::Run()
     return true;
 }
 
-bool SDC_Motor::GetPos(Ref *ref, long *setpoint) const
+bool SDC_Motor::GetPos(Ref *ref, long *setpoint, long *dbgParam) const
 {
     if(ref)
         *ref = Ref(*encPos_, millis());
     if(setpoint)
         *setpoint = (long)setpoint_;
+    if(dbgParam)
+        *dbgParam = output_;
     return running_;
 }
 
@@ -120,7 +122,7 @@ bool SDC_Motor::SetNextPos(long upos, long ts, Ref *ref)
 
     long uposCurr, tsCurr;
     DoGetPos(&uposCurr, &tsCurr);
-    if((ts > tsCurr ? ts - tsCurr : tsCurr - ts) > 10)   // ignore if timestamps that are closer than 10 ms, due to bad accuracy
+    if((ts > tsCurr ? ts - tsCurr : tsCurr - ts) > 10)   // ignore if timestamps are closer than 10 ms, due to bad accuracy
     {
         ts_ = tsCurr;
         upos_ = uposCurr;

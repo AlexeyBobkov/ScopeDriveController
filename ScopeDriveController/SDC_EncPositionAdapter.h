@@ -34,7 +34,7 @@ public:
 
     // SDC_MotorItf
     bool IsRunning() const;
-    bool GetPos(Ref *ref, long *setpoint) const;
+    bool GetPos(Ref *ref, long *setpoint, long *dbgParam) const;
     double GetMaxSpeed() const {return motor_->GetMaxSpeed() / options_.scopeToMotor_;}
     bool Start (double speed, SDC_MotionType *mt, Ref *ref);
     bool SetSpeed(double speed, Ref *ref);
@@ -42,9 +42,9 @@ public:
     void Stop();
 
     // MotionType
-    bool CanMove(const SDC_MotorItf *m) const               {return mt_ ? mt_->CanMove(m) : true;}
-    void MotorStarted(SDC_MotorItf *m)                      {if(mt_) mt_->MotorStarted(m); running_ = true;}
-    void MotorStopped(SDC_MotorItf *m, bool byStopCommand)  {if(mt_) mt_->MotorStopped(m, byStopCommand); running_ = false;}
+    bool CanMove(const SDC_MotorItf*) const                 {return mt_ ? mt_->CanMove(this) : true;}
+    void MotorStarted(SDC_MotorItf*)                        {if(mt_) mt_->MotorStarted(this); running_ = true;}
+    void MotorStopped(SDC_MotorItf*, bool byStopCommand)    {if(mt_) mt_->MotorStopped(this, byStopCommand); running_ = false;}
 
 private:
     Options options_;
@@ -60,12 +60,12 @@ private:
     double speed_;      // units/ms
     double setpoint_, input_, output_;
     long lastAdjustPID_;
-    bool regularTmo_;
-    double maxOut_;
+    bool regularAdjustPID_;
     PID pid_;
 
     void DoGetPos(long *spos, long *mpos, long *ts);
     void UpdateSpeed(double speed);
+    void ReInitializePID(double speed);
     void AdjustPID();
 };
 

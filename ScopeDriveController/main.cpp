@@ -65,8 +65,8 @@ IntlkMotionType intlk;
 SDC_Motor motorALT(SDC_Motor::Options(50*RESOLUTION/60000, 0.5, 0.4), DIR1_OPIN, PWMA_OPIN, SDC_GetMotorAltEncoderPositionPtr());   // 65rpm
 SDC_Motor motorAZM(SDC_Motor::Options(50*RESOLUTION/60000, 0.5, 0.4), DIR2_OPIN, PWMB_OPIN, SDC_GetMotorAzmEncoderPositionPtr());   // 65rpm
 
-SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(224.9, 0.2, 0.01), SDC_GetAltEncoderPositionPtr(), SDC_GetMotorAltEncoderPositionPtr(), &motorALT);
-SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(181.0, 0.3, 0.01), SDC_GetAzmEncoderPositionPtr(), SDC_GetMotorAzmEncoderPositionPtr(), &motorAZM);
+SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(224.9, 0.3, 0.8), SDC_GetAltEncoderPositionPtr(), SDC_GetMotorAltEncoderPositionPtr(), &motorALT);
+SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(181.0, 0.3, 0.8), SDC_GetAzmEncoderPositionPtr(), SDC_GetMotorAzmEncoderPositionPtr(), &motorAZM);
 
 void setup()
 {
@@ -111,7 +111,7 @@ static SDC_MotorItf* GetMotor(byte b)
     }
 }
 
-static void SetMotorSpeed(byte buf[], int, int)
+static void StartMotor(byte buf[], int, int)
 {
     byte *p = buf;
     SDC_MotorItf *motor = GetMotor(*p++);
@@ -125,6 +125,20 @@ static void SetMotorSpeed(byte buf[], int, int)
     printHex2(ref.ts_);
 }
 
+static void SetMotorSpeed(byte buf[], int, int)
+{
+    byte *p = buf;
+    SDC_MotorItf *motor = GetMotor(*p++);
+
+    // speed: units/day
+    long speed = long((uint32_t(p[3]) << 24) + (uint32_t(p[2]) << 16) + (uint32_t(p[1]) << 8) + uint32_t(p[0]));
+
+    SDC_MotorItf::Ref ref;
+    motor->SetSpeed(double(speed)/(24.0*60.0*60000.), &ref);     // convert speed -> units/ms
+    printHex2(ref.upos_);
+    printHex2(ref.ts_);
+}
+
 static void NextMotorPosition(byte buf[], int, int)
 {
     byte *p = buf;
@@ -133,8 +147,10 @@ static void NextMotorPosition(byte buf[], int, int)
     long upos = long((uint32_t(p[3]) << 24) + (uint32_t(p[2]) << 16) + (uint32_t(p[1]) << 8) + uint32_t(p[0]));
     long ts   = long((uint32_t(p[7]) << 24) + (uint32_t(p[6]) << 16) + (uint32_t(p[5]) << 8) + uint32_t(p[4]));
 
-    motor->SetNextPos(upos, ts);
-    Serial.print("r");
+    SDC_MotorItf::Ref ref;
+    motor->SetNextPos(upos, ts, &ref);
+    printHex2(ref.upos_);
+    printHex2(ref.ts_);
 }
 
 static void StopMotor(byte buf[], int, int)
@@ -147,10 +163,12 @@ static void PollMotor(byte buf[], int, int)
 {
     SDC_MotorItf::Ref ref;
     long setpoint;
-    byte running = GetMotor(buf[0])->GetPos(&ref, &setpoint) ? 1 : 0;
+    long dbg;
+    byte running = GetMotor(buf[0])->GetPos(&ref, &setpoint, &dbg) ? 1 : 0;
     printHex2(ref.upos_);
     printHex2(ref.ts_);
     printHex2(setpoint);
+    printHex2(dbg);
     switch(buf[0])
     {
     default:
@@ -201,6 +219,10 @@ static void ProcessSerialCommand(char inchar)
     switch(inchar)
     {
     case 'S':   // start and set speed
+        SetSerialBuf(5, StartMotor);
+        break;
+
+    case 'V':   // set speed
         SetSerialBuf(5, SetMotorSpeed);
         break;
 
