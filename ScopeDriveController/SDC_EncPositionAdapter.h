@@ -9,7 +9,7 @@
 #ifndef SDC_ENCPOSITIONADAPTER_H_
 #define SDC_ENCPOSITIONADAPTER_H_
 
-#include "PID_v1.h"
+#include <PID_v1.h>
 #include "SDC_Motor.h"
 
 class SDC_MotorAdapter : public SDC_MotorItf, private SDC_MotionType
@@ -38,7 +38,7 @@ public:
     double GetMaxSpeed() const {return motor_->GetMaxSpeed() / options_.scopeToMotor_;}
     bool Start (double speed, SDC_MotionType *mt, Ref *ref);
     bool SetSpeed(double speed, Ref *ref);
-    bool SetNextPos(long upos, long ts, Ref *ref);
+    bool SetNextPos(long upos, long ts, bool reset, Ref *ref);
     void Stop();
 
     // MotionType

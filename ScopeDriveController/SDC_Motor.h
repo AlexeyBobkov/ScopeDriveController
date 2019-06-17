@@ -9,7 +9,7 @@
 #ifndef SDC_MOTOR_H_
 #define SDC_MOTOR_H_
 
-#include "PID_v1.h"
+#include <PID_v1.h>
 
 // motion law
 class SDC_MotorItf;
@@ -42,7 +42,7 @@ public:
                         SDC_MotionType *mt,                 // motion callback
                         Ref *ref = NULL) = 0;               // starting position and timestamp
     virtual bool SetSpeed(double speed, Ref *ref = NULL);   // speed is in encoder units/ms
-    virtual bool SetNextPos(long upos, long ts, Ref *ref = NULL) = 0;
+    virtual bool SetNextPos(long upos, long ts, bool reset, Ref *ref = NULL) = 0;
     virtual void Stop() = 0;
 };
 
@@ -76,7 +76,7 @@ public:
     double GetMaxSpeed() const {return maxSpeed_;}
     bool Start (double speed, SDC_MotionType *mt, Ref *ref);
     bool SetSpeed(double speed, Ref *ref);
-    bool SetNextPos(long upos, long ts, Ref *ref);
+    bool SetNextPos(long upos, long ts, bool reset, Ref *ref);
     void Stop();
 
 private:

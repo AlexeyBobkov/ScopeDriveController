@@ -170,7 +170,7 @@ bool SDC_MotorAdapter::SetSpeed(double speed, Ref *ref)
     return motor_->SetSpeed(speed * options_.scopeToMotor_, NULL);
 }
 
-bool SDC_MotorAdapter::SetNextPos(long upos, long ts, Ref *ref)
+bool SDC_MotorAdapter::SetNextPos(long upos, long ts, bool reset, Ref *ref)
 {
     if(!running_)
         return false;

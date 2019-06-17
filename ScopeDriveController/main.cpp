@@ -12,21 +12,18 @@
 #include "SDC_Motor.h"
 #include "SDC_EncPositionAdapter.h"
 #include "SDC_Sound.h"
+#include "SDC_Storage.h"
 
 ///////////////////////////////////////////////////////////////////////////////////////
 const long RESOLUTION = 1000*4;
-//const long BEARING_RATIO = 22;
-//const long ADDITIONAL_RATIO = 20;
 
 ///////////////////////////////////////////////////////////////////////////////////////
-/*
 static void printHex(long val)
 {
     byte buf[2];
     buf[0] = val - (buf[1] = val / 256) * 256;
     Serial.write(buf, 2);
 }
-*/
 
 static void printHex2(unsigned long v)
 {
@@ -68,6 +65,8 @@ SDC_Motor motorAZM(SDC_Motor::Options(50*RESOLUTION/60000, 0.5, 0.4), DIR2_OPIN,
 SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(224.9, 0.3, 0.8), SDC_GetAltEncoderPositionPtr(), SDC_GetMotorAltEncoderPositionPtr(), &motorALT);
 SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(181.0, 0.3, 0.8), SDC_GetAzmEncoderPositionPtr(), SDC_GetMotorAzmEncoderPositionPtr(), &motorAZM);
 
+uint8_t uSessionId;
+
 void setup()
 {
     //pinMode(SOUND_OPIN, OUTPUT);
@@ -91,8 +90,24 @@ void setup()
 
     digitalWrite(ENABLE_OPIN, HIGH);
 
+    SDC_ReadSessionId(&uSessionId);
+    SDC_WriteSessionId(++uSessionId);
+
     Serial.begin(115200);
 }
+
+// capabilities that we support
+#define CONNCAPS_ALTAZM     1   // Digital Setting Circles
+#define CONNCAPS_EQU        2   // Equatorial Platform - dummy emulation only
+#define CONNCAPS_GOTO       8   // GoTo commands
+
+static void ReportCapabilities()
+{
+    // hardcoded
+    const uint8_t capabilities = (CONNCAPS_ALTAZM|CONNCAPS_EQU|CONNCAPS_GOTO);
+    Serial.write(capabilities);
+}
+
 
 #define A_ALT   0       // command for alt adapter
 #define A_AZM   1       // command for azm adapter
@@ -148,7 +163,7 @@ static void NextMotorPosition(byte buf[], int, int)
     long ts   = long((uint32_t(p[7]) << 24) + (uint32_t(p[6]) << 16) + (uint32_t(p[5]) << 8) + uint32_t(p[4]));
 
     SDC_MotorItf::Ref ref;
-    motor->SetNextPos(upos, ts, &ref);
+    motor->SetNextPos(upos, ts, false, &ref);
     printHex2(ref.upos_);
     printHex2(ref.ts_);
 }
@@ -218,6 +233,66 @@ static void ProcessSerialCommand(char inchar)
 
     switch(inchar)
     {
+    // GENERAL COMMANDS
+
+    case 'c':
+        // report capabilities
+        ReportCapabilities();
+        break;
+
+    case 's':
+        // report capabilities and session id
+        ReportCapabilities();
+        Serial.write(uSessionId);
+        break;
+
+
+    // ALT/AZM (DIGITAL SETTING CURCLES) COMMANDS
+
+    case 'p':
+        // Dave Ek's format: report the number of encoder errors and reset the counter to zero
+        Serial.write(uint8_t(0));   // no errors
+        break;
+
+    case 'h':
+        // Dave Ek's format: report encoder resolutions
+        printHex(SDC_GetAltEncoderResolution());
+        printHex(SDC_GetAzmEncoderResolution());
+        break;
+
+    case 'y':
+        // Dave Ek's format: report encoder positions
+        printHex(SDC_GetAltEncoderPosition());
+        printHex(SDC_GetAzmEncoderPosition());
+        break;
+
+
+    // EQUATORIAL PLATFORM COMMANDS - EMULATION ONLY
+
+    case 'q':
+        // report the equatorial angle resolution
+        printHex(0x8000);
+        break;
+
+    case 'e':
+        // report the equatorial angle
+        printHex(0);
+        break;
+
+    case '1':   // star tracking
+    case '2':   // moon tracking
+    case '3':   // sun tracking
+    case '8':   // fast move to center
+    case '#':   // fast forward
+    case '0':   // stop
+    case '*':   // fast backward
+        // don't do anything
+        Serial.print("r");
+        break;
+
+
+    // GOTO COMMANDS
+
     case 'S':   // start and set speed
         SetSerialBuf(5, StartMotor);
         break;
