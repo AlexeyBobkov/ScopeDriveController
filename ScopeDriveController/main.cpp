@@ -40,7 +40,7 @@ class IntlkMotionType : public SDC_MotionType
 public:
     virtual bool    CanMove(const SDC_MotorItf*) const              {return digitalRead(SWITCH_IPIN) == 0;}
     virtual void    MotorStarted(SDC_MotorItf*)                     {}
-    virtual void    MotorStopped(SDC_MotorItf*, bool byStopCommand) {if(!byStopCommand) MakeSound(400);}
+    virtual void    MotorStopped(SDC_MotorItf*, bool byStopCommand) {if(!byStopCommand) MakeSound(50);}
 };
 IntlkMotionType intlk;
 
@@ -59,11 +59,12 @@ IntlkMotionType intlk;
 // As a real motor is not ideal and has some threshold voltage to start rotation, it may be better to make the Ki smaller than the theoretical value.
 // The system stabilizes slower but oscillates less on slow speeds. (Is oscillation on slow speed really a problem?)
 //
-SDC_Motor motorALT(SDC_Motor::Options(50*RESOLUTION/60000, 0.5, 0.4), DIR1_OPIN, PWMA_OPIN, SDC_GetMotorAltEncoderPositionPtr());   // 65rpm
-SDC_Motor motorAZM(SDC_Motor::Options(50*RESOLUTION/60000, 0.5, 0.4), DIR2_OPIN, PWMB_OPIN, SDC_GetMotorAzmEncoderPositionPtr());   // 65rpm
+SDC_Motor motorALT(SDC_Motor::Options(30*RESOLUTION/60000, 1.0, 0.8), DIR1_OPIN, PWMA_OPIN, SDC_GetMotorAltEncoderPositionPtr());   // 65rpm
+SDC_Motor motorAZM(SDC_Motor::Options(60*RESOLUTION/60000, 0.5, 0.4), DIR2_OPIN, PWMB_OPIN, SDC_GetMotorAzmEncoderPositionPtr());   // 65rpm
 
-SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(224.9, 0.3, 0.8), SDC_GetAltEncoderPositionPtr(), SDC_GetMotorAltEncoderPositionPtr(), &motorALT);
-SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(181.0, 0.3, 0.8), SDC_GetAzmEncoderPositionPtr(), SDC_GetMotorAzmEncoderPositionPtr(), &motorAZM);
+SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(223.3, 0.3, 0.8), SDC_GetAltEncoderPositionPtr(), SDC_GetMotorAltEncoderPositionPtr(), &motorALT);
+//SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(181.0, 0.3, 0.8), SDC_GetAzmEncoderPositionPtr(), SDC_GetMotorAzmEncoderPositionPtr(), &motorAZM);
+SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(175.6, 0.3, 0.8), SDC_GetAzmEncoderPositionPtr(), SDC_GetMotorAzmEncoderPositionPtr(), &motorAZM);
 
 uint8_t uSessionId;
 
@@ -71,7 +72,7 @@ void setup()
 {
     //pinMode(SOUND_OPIN, OUTPUT);
 
-    pinMode(SWITCH_IPIN, INPUT_PULLUP);
+    pinMode(SWITCH_IPIN, INPUT);
     pinMode(ENABLE_OPIN, OUTPUT);
     //pinMode(DIR1_OPIN, OUTPUT);
     //pinMode(DIR2_OPIN, OUTPUT);
@@ -94,6 +95,8 @@ void setup()
     SDC_WriteSessionId(++uSessionId);
 
     Serial.begin(115200);
+
+	MakeSound(100, 500);
 }
 
 // capabilities that we support
