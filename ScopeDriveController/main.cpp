@@ -96,7 +96,7 @@ void setup()
 
     Serial.begin(115200);
 
-	MakeSound(100, 500);
+    MakeSound(100, 500);
 }
 
 // capabilities that we support
@@ -202,6 +202,20 @@ static void PollMotor(byte buf[], int, int)
     Serial.write(&running, 1);
 }
 
+
+///////////////////////////////////////////////////////////////////////////////////////
+#define STATE_ALT_RUNNING   1
+#define STATE_AZM_RUNNING   2
+#define STATE_SWITCH_ON     4
+static uint8_t GetState()
+{
+    uint8_t state = uint8_t(GetMotor(A_ALT)->IsRunning() ? STATE_ALT_RUNNING : 0) | uint8_t(GetMotor(A_AZM)->IsRunning() ? STATE_AZM_RUNNING : 0);
+    if(digitalRead(SWITCH_IPIN) == 0)
+        state |= STATE_SWITCH_ON;
+    return state;
+}
+
+
 ///////////////////////////////////////////////////////////////////////////////////////
 #define SERIAL_BUF_SZ 10
 static byte serialBuf[SERIAL_BUF_SZ];
@@ -215,6 +229,7 @@ static void SetSerialBuf(int bufWait, SERIAL_FN fn)
     serialBufCurr = 0;
     serialFn = fn;
 }
+
 
 ///////////////////////////////////////////////////////////////////////////////////////
 static void ProcessSerialCommand(char inchar)
@@ -316,10 +331,18 @@ static void ProcessSerialCommand(char inchar)
         SetSerialBuf(1, PollMotor);
         break;
 
+    case 'R':   // report current state
+        {
+            printHex2(millis());
+            printHex2(*SDC_GetAltEncoderPositionPtr());
+            printHex2(*SDC_GetAzmEncoderPositionPtr());
+            Serial.write(GetState());
+        }
+        break;
+
     default:
         break;
     }
-
 }
 
 void loop()
