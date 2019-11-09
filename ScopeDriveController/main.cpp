@@ -7,12 +7,18 @@
 
 #include <Arduino.h>
 
+#define LOGGING_ON
+
 #include "SDC_Configuration.h"
 #include "SDC_Encoders.h"
 #include "SDC_Motor.h"
 #include "SDC_EncPositionAdapter.h"
 #include "SDC_Sound.h"
 #include "SDC_Storage.h"
+
+#ifdef LOGGING_ON
+#include "RingBuffer.h"
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////////////
 const long RESOLUTION = 1000*4;
@@ -63,8 +69,7 @@ SDC_Motor motorALT(SDC_Motor::Options(30*RESOLUTION/60000, 1.0, 0.8), DIR1_OPIN,
 SDC_Motor motorAZM(SDC_Motor::Options(60*RESOLUTION/60000, 0.5, 0.4), DIR2_OPIN, PWMB_OPIN, SDC_GetMotorAzmEncoderPositionPtr());   // 65rpm
 
 SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(223.3, 0.3, 0.8), SDC_GetAltEncoderPositionPtr(), SDC_GetMotorAltEncoderPositionPtr(), &motorALT);
-//SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(181.0, 0.3, 0.8), SDC_GetAzmEncoderPositionPtr(), SDC_GetMotorAzmEncoderPositionPtr(), &motorAZM);
-SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(175.6, 0.3, 0.8), SDC_GetAzmEncoderPositionPtr(), SDC_GetMotorAzmEncoderPositionPtr(), &motorAZM);
+SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(177.1, 0.3, 0.8), SDC_GetAzmEncoderPositionPtr(), SDC_GetMotorAzmEncoderPositionPtr(), &motorAZM);
 
 uint8_t uSessionId;
 
@@ -204,6 +209,131 @@ static void PollMotor(byte buf[], int, int)
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
+#ifdef LOGGING_ON
+
+#define CNT_BEFORE_SYNC 50      // count between re-sync
+#define LOG_PERIOD      200     // ms
+#define LMODE_OFF       A_ALT   // any != M_ALT, != M_AZM
+
+struct LoggingData
+{
+    byte buf[4];
+
+    LoggingData() {}
+    LoggingData(byte mode, byte hiAbsPos, byte hiAbsTs) // re-synchronize
+    {
+        buf[0] = hiAbsPos;
+        buf[1] = hiAbsTs;
+        buf[2] = mode;
+        buf[3] = 0x80;
+    }
+    LoggingData(long v) // absolute
+    {
+        buf[0] = v;
+        buf[1] = v >> 8;
+        buf[2] = v >> 16;
+        buf[3] = 0;
+    }
+    LoggingData(uint16_t relPos, uint16_t relTs) // relative
+    {
+        buf[0] = relPos;
+        buf[1] = relPos >> 8;
+        buf[2] = relTs;
+        buf[3] = relTs >> 8;
+    }
+};
+
+static byte gLoggingMode        = LMODE_OFF;
+static int gCntSinceLastSync    = CNT_BEFORE_SYNC;
+static long gAbsPos, gAbsTs;
+static RingBuffer<LoggingData, 100> gRingBuf;
+
+static void ReportLogging(byte buf[])
+{
+    int8_t cnt = int8_t(buf[1]);
+    int8_t bufSize = int8_t(gRingBuf.count());
+    int8_t toReport = cnt <= bufSize ? cnt : bufSize;
+
+    Serial.write(cnt);                                      // entries requested
+    Serial.write(toReport);                                 // entries actually reported
+    Serial.write(bufSize - toReport);                       // entries count after this report
+    Serial.write(gRingBuf.overflowedCount() > 0 ? 1 : 0);   // current overflowed count status
+
+    // report data
+    cnt -= toReport;
+    while(--toReport >= 0)
+    {
+        Serial.write(gRingBuf.front().buf, 4);
+        gRingBuf.pop_front();
+    }
+    // fill rest with 0s
+    if(cnt > 0)
+    {
+        long i = 0;
+        do
+            Serial.write((byte*)&i, 4);
+        while(--cnt > 0);
+    }
+    gRingBuf.resetOverflowedCnt();
+}
+static void PositionLogging(byte buf[], int, int)
+{
+    switch(buf[0])
+    {
+    case 'w':   // report to host
+        ReportLogging(buf);
+        break;
+
+    case 'm':   // set mode
+        {
+            int newLoggingMode = buf[1];
+            if(gLoggingMode != newLoggingMode)
+            {
+                gRingBuf.clear();
+                gLoggingMode = newLoggingMode;
+
+                // force immediate re-sync
+                gCntSinceLastSync = CNT_BEFORE_SYNC;
+                gAbsTs = -(CNT_BEFORE_SYNC+1)*LOG_PERIOD;
+            }
+        }
+        MakeSound(20);
+        Serial.print("r");
+        break;
+    }
+}
+static void LogData()
+{
+    long ts;
+    switch(gLoggingMode)
+    {
+    case M_ALT:
+    case M_AZM:
+        if((ts = millis()) < gAbsTs + (gCntSinceLastSync+1)*LOG_PERIOD)
+            return;
+        break;
+    default:
+        return;
+    }
+    long pos = (gLoggingMode == M_ALT) ? *SDC_GetMotorAltEncoderPositionPtr() : *SDC_GetMotorAzmEncoderPositionPtr();
+
+    if(++gCntSinceLastSync <= CNT_BEFORE_SYNC)
+        gRingBuf.push_back(LoggingData(uint16_t(pos - gAbsPos), uint16_t(ts - gAbsTs)));
+    else
+    {
+        // resynchronize
+        gCntSinceLastSync = 0;
+        gRingBuf.push_back(LoggingData(gLoggingMode, byte(pos>>24), byte(ts>>24)));
+        gRingBuf.push_back(LoggingData(gAbsPos = pos));
+        gRingBuf.push_back(LoggingData(gAbsTs = ts));
+    }
+}
+
+#endif
+///////////////////////////////////////////////////////////////////////////////////////
+
+
+///////////////////////////////////////////////////////////////////////////////////////
 #define STATE_ALT_RUNNING   1
 #define STATE_AZM_RUNNING   2
 #define STATE_SWITCH_ON     4
@@ -331,6 +461,12 @@ static void ProcessSerialCommand(char inchar)
         SetSerialBuf(1, PollMotor);
         break;
 
+#ifdef LOGGING_ON
+    case 'L':   // position logging
+        SetSerialBuf(2, PositionLogging);
+        break;
+#endif
+
     case 'R':   // report current state
         {
             printHex2(millis());
@@ -348,6 +484,10 @@ static void ProcessSerialCommand(char inchar)
 void loop()
 {
     SoundRun();
+
+#ifdef LOGGING_ON
+    LogData();
+#endif
 
     // interlock
     digitalWrite(ENABLE_OPIN, digitalRead(SWITCH_IPIN) ? LOW : HIGH);

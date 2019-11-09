@@ -51,6 +51,16 @@ private:
     volatile long *scopeEncPos_, *motorEncPos_;
     SDC_MotorItf *motor_;
 
+    /*
+    enum State
+    {
+        REGULAR,
+        DIFF1,
+        DIFF2,
+        DIFF3
+    };
+    */
+
     double maxSpeed_;
     bool running_;
     SDC_MotionType *mt_;
@@ -61,12 +71,16 @@ private:
     double setpoint_, input_, output_;
     long lastAdjustPID_;
     bool regularAdjustPID_;
+    //State state_;
     PID pid_;
 
     void DoGetPos(long *spos, long *mpos, long *ts);
     void UpdateSpeed(double speed);
     void ReInitializePID(double speed);
+    void SetMaxOutputLimits();
+    void SwitchToAuto();
     void AdjustPID();
+    void AdjustPID(double diff);
 };
 
 
