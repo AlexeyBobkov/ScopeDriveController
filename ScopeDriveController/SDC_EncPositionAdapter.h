@@ -36,6 +36,7 @@ public:
     bool IsRunning() const;
     bool GetPos(Ref *ref, long *setpoint, long *dbgParam) const;
     double GetMaxSpeed() const {return motor_->GetMaxSpeed() / options_.scopeToMotor_;}
+    double GetSpeed() const {return speed_;}
     bool Start (double speed, SDC_MotionType *mt, Ref *ref);
     bool SetSpeed(double speed, Ref *ref);
     bool SetNextPos(long upos, long ts, bool reset, Ref *ref);

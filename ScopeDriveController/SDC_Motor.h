@@ -36,6 +36,7 @@ public:
 
     virtual bool IsRunning() const = 0;
     virtual bool GetPos(Ref *ref, long *setpoint = NULL, long *dbgParam = NULL) const = 0;
+    virtual double GetSpeed() const = 0;
     virtual double GetMaxSpeed() const = 0;
 
     virtual bool Start (double speed,                       // start speed, in encoder units/ms
@@ -74,6 +75,7 @@ public:
     bool IsRunning() const {return running_;}
     bool GetPos(Ref *ref, long *setpoint, long *dbgParam) const;
     double GetMaxSpeed() const {return maxSpeed_;}
+    double GetSpeed() const {return speed_;}
     bool Start (double speed, SDC_MotionType *mt, Ref *ref);
     bool SetSpeed(double speed, Ref *ref);
     bool SetNextPos(long upos, long ts, bool reset, Ref *ref);

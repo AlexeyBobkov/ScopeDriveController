@@ -214,7 +214,15 @@ static void PollMotor(byte buf[], int, int)
 
 #define CNT_BEFORE_SYNC 50      // count between re-sync
 #define LOG_PERIOD      200     // ms
-#define LMODE_OFF       A_ALT   // any != M_ALT, != M_AZM
+#define MSPEED_SCALE    4000    // motor speed scale
+
+#define LMODE_OFF           0
+#define LMODE_POS_M_ALT     2
+#define LMODE_POS_M_AZM     3
+#define LMODE_SPD_M_ALT     4
+#define LMODE_SPD_M_AZM     5
+#define LMODE_SPD_A_ALT     6
+#define LMODE_SPD_A_AZM     7
 
 struct LoggingData
 {
@@ -306,17 +314,20 @@ static void PositionLogging(byte buf[], int, int)
 static void LogData()
 {
     long ts;
+    if(gLoggingMode == LMODE_OFF || (ts = millis()) < gAbsTs + (gCntSinceLastSync+1)*LOG_PERIOD)
+        return;
+
+    long pos;
     switch(gLoggingMode)
     {
-    case M_ALT:
-    case M_AZM:
-        if((ts = millis()) < gAbsTs + (gCntSinceLastSync+1)*LOG_PERIOD)
-            return;
-        break;
-    default:
-        return;
+    default: return;
+    case LMODE_POS_M_ALT:   pos = *SDC_GetMotorAltEncoderPositionPtr(); break;
+    case LMODE_POS_M_AZM:   pos = *SDC_GetMotorAzmEncoderPositionPtr(); break;
+    case LMODE_SPD_M_ALT:   pos = long(motorALT.GetSpeed()*MSPEED_SCALE); break;
+    case LMODE_SPD_M_AZM:   pos = long(motorAZM.GetSpeed()*MSPEED_SCALE); break;
+    case LMODE_SPD_A_ALT:   pos = long(adapterALT.GetSpeed()*MSPEED_SCALE); break;
+    case LMODE_SPD_A_AZM:   pos = long(adapterAZM.GetSpeed()*MSPEED_SCALE); break;
     }
-    long pos = (gLoggingMode == M_ALT) ? *SDC_GetMotorAltEncoderPositionPtr() : *SDC_GetMotorAzmEncoderPositionPtr();
 
     if(++gCntSinceLastSync <= CNT_BEFORE_SYNC)
         gRingBuf.push_back(LoggingData(uint16_t(pos - gAbsPos), uint16_t(ts - gAbsTs)));
