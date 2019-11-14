@@ -96,6 +96,7 @@ bool SDC_Motor::Start (double speed, SDC_MotionType *mt, Ref *ref)
     speed_ = speed;
 
     setpoint_ = input_ = upos_;
+    output_ = 0;
     pid_.SetMode(AUTOMATIC);
     return true;
 }

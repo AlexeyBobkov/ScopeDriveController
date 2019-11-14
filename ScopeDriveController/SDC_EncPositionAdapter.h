@@ -67,7 +67,9 @@ private:
     void DoGetPos(long *spos, long *mpos, long *ts);
     void UpdateSpeed(double speed);
     void ReInitializePID(double speed);
+    void SetMaxOutputLimits();
     void AdjustPID();
+    void AdjustPID(double diff);
 };
 
 
