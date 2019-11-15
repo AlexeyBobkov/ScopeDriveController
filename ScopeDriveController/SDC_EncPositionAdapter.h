@@ -18,12 +18,14 @@ public:
     struct Options
     {
         double scopeToMotor_;
-        double Kp_, Ki_;
+        double Kp_, Ki_, KpFast_;
+        double diff1_, diff2_;
         Options() {}
-        Options(double scopeToMotor, double Kp, double Ki) : scopeToMotor_(scopeToMotor), Kp_(Kp), Ki_(Ki) {}
+        Options(double scopeToMotor, double Kp, double Ki, double KpFast, double diff1, double diff2)
+            : scopeToMotor_(scopeToMotor), Kp_(Kp), Ki_(Ki), KpFast_(KpFast), diff1_(diff1), diff2_(diff2) {}
     };
 
-    SDC_MotorAdapter(const Options &options, volatile long *scopeEncPos, volatile long *motorEncPos, SDC_MotorItf *motor);
+    SDC_MotorAdapter(const Options &options, volatile long *scopeEncPos, SDC_MotorItf *motor);
 
     // call once in setup()
     void Setup();
@@ -49,14 +51,13 @@ public:
 
 private:
     Options options_;
-    volatile long *scopeEncPos_, *motorEncPos_;
+    volatile long *scopeEncPos_;
     SDC_MotorItf *motor_;
 
     double maxSpeed_;
     bool running_;
     SDC_MotionType *mt_;
     long refScopePos_;
-    long refMotorPos_;
     long ts_;
     double speed_;      // units/ms
     double setpoint_, input_, output_;
@@ -64,12 +65,11 @@ private:
     bool regularAdjustPID_;
     PID pid_;
 
-    void DoGetPos(long *spos, long *mpos, long *ts);
+    void DoGetPos(long *spos, long *ts);
     void UpdateSpeed(double speed);
     void ReInitializePID(double speed);
     void SetMaxOutputLimits();
     void AdjustPID();
-    void AdjustPID(double diff);
 };
 
 

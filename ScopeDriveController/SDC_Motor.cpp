@@ -108,7 +108,13 @@ bool SDC_Motor::SetSpeed(double speed, Ref *ref)
 
     if(speed != speed_)
     {
-        DoGetPos(&upos_, &ts_);
+        long uposCurr, tsCurr;
+        DoGetPos(&uposCurr, &tsCurr);
+
+        //upos_ = uposCurr;             // <-- Incorrect!
+        upos_ += speed_*(tsCurr - ts_); // <-- Correct! To keep the PID state, we must use current LOGICAL position as the next reference point.
+        ts_ = tsCurr;
+
         speed_ = speed;
         if(ref)
             *ref = Ref(upos_, ts_);
@@ -125,8 +131,10 @@ bool SDC_Motor::SetNextPos(long upos, long ts, bool reset, Ref *ref)
     DoGetPos(&uposCurr, &tsCurr);
     if((ts > tsCurr ? ts - tsCurr : tsCurr - ts) > 10)   // ignore if timestamps are closer than 10 ms, due to bad accuracy
     {
+        //upos_ = uposCurr;             // <-- Incorrect!
+        upos_ += speed_*(tsCurr - ts_); // <-- Correct! To keep the PID state, we must use current LOGICAL position as the next reference point.
         ts_ = tsCurr;
-        upos_ = uposCurr;
+
         speed_ = double(upos - uposCurr)/double(ts - tsCurr);
         if(ref)
             *ref = Ref(uposCurr, tsCurr);

@@ -65,11 +65,25 @@ IntlkMotionType intlk;
 // As a real motor is not ideal and has some threshold voltage to start rotation, it may be better to make the Ki smaller than the theoretical value.
 // The system stabilizes slower but oscillates less on slow speeds. (Is oscillation on slow speed really a problem?)
 //
-SDC_Motor motorALT(SDC_Motor::Options(30*RESOLUTION/60000, 1.0, 0.8), DIR1_OPIN, PWMA_OPIN, SDC_GetMotorAltEncoderPositionPtr());   // 65rpm
-SDC_Motor motorAZM(SDC_Motor::Options(60*RESOLUTION/60000, 0.5, 0.4), DIR2_OPIN, PWMB_OPIN, SDC_GetMotorAzmEncoderPositionPtr());   // 65rpm
+SDC_Motor motorALT(SDC_Motor::Options(30*RESOLUTION/60000, 1.0, 0.8), DIR1_OPIN, PWMA_OPIN, SDC_GetMotorAltEncoderPositionPtr());   // 30rpm
+SDC_Motor motorAZM(SDC_Motor::Options(60*RESOLUTION/60000, 0.5, 0.4), DIR2_OPIN, PWMB_OPIN, SDC_GetMotorAzmEncoderPositionPtr());   // 60rpm
 
-SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(223.3, 0.3, 0.8), SDC_GetAltEncoderPositionPtr(), SDC_GetMotorAltEncoderPositionPtr(), &motorALT);
-SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(177.1, 0.3, 0.8), SDC_GetAzmEncoderPositionPtr(), SDC_GetMotorAzmEncoderPositionPtr(), &motorAZM);
+SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(223.3,    // ratio
+                                                      0.1,      // Kp factor (only factor; Ki is calculated)
+                                                      1.0,      // Ki factor (only factor; Kp is calculated)
+                                                      0.5,      // Kp for fast movement factor
+                                                      6.0,      // diff 1 (deviation allowing fast movement)
+                                                      3.0),     // diff 2 (deviation allowing backward movement and no speed restrictions)
+                            SDC_GetAltEncoderPositionPtr(),
+                            &motorALT);
+SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(177.1,    // ratio
+                                                      0.1,      // Kp factor
+                                                      1.0,      // Ki factor
+                                                      0.5,      // Kp for fast movement factor
+                                                      6.0,      // diff 1
+                                                      3.0),     // diff 2
+                            SDC_GetAzmEncoderPositionPtr(),
+                            &motorAZM);
 
 uint8_t uSessionId;
 
