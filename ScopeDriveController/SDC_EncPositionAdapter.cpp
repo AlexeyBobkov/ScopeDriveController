@@ -14,12 +14,13 @@ const long ADJUST_PID_TMO = 1000;
 
 SDC_MotorAdapter::SDC_MotorAdapter(const Options &options, volatile long *scopeEncPos, SDC_MotorItf *motor)
     :   options_(options), scopeEncPos_(scopeEncPos), motor_(motor),
-        maxSpeed_(motor_->GetMaxSpeed() / options_.scopeToMotor_), running_(false), mt_(NULL), output_(0), lastAdjustPID_(0), regularAdjustPID_(true),
+        maxSpeed_(motor_->GetMaxSpeed() / options_.scopeToMotor_), running_(false), mt_(NULL), output_(0), lastAdjustPID_(0), speedMode_(REGULAR),
         pid_(&input_, &output_, &setpoint_, 1.0, 0.0, 0.0, DIRECT)
 {
     double A = 1000.0/options_.scopeToMotor_;
     options_.Kp_ *= 1/A;
-    options_.KpFast_ *= 1/A;
+    options_.KpFast2_ *= 1/A;
+    options_.KpFast3_ *= 1/A;
     options_.Ki_ *= (options_.Kp_*options_.Kp_) * A / 4;
 
     pid_.SetTunings(options_.Kp_, options_.Ki_, 0);
@@ -31,13 +32,6 @@ SDC_MotorAdapter::SDC_MotorAdapter(const Options &options, volatile long *scopeE
 void SDC_MotorAdapter::Setup()
 {
     lastAdjustPID_ = millis() - ADJUST_PID_TMO;
-}
-
-void SDC_MotorAdapter::ReInitializePID(double speed)
-{
-    pid_.SetMode(MANUAL);
-    output_ = speed * options_.scopeToMotor_;
-    pid_.SetMode(AUTOMATIC);
 }
 
 void SDC_MotorAdapter::SetMaxOutputLimits()
@@ -67,38 +61,49 @@ void SDC_MotorAdapter::AdjustPID()
     if(diff < 0)
         diff = -diff;
 
-    if(diff > options_.diff1_)
+    if(diff > options_.diff3_)
+    {
+        // very fast movement
+        if(speedMode_ != FAST3)
+        {
+            speedMode_ = FAST3;
+            SetMaxOutputLimits();
+            pid_.SetTunings(options_.KpFast3_, 0, 0);
+        }
+    }
+    else if(diff > options_.diff2_)
     {
         // fast movement
-
-        SetMaxOutputLimits();
-        regularAdjustPID_ = false;
-        pid_.SetTunings(options_.KpFast_, 0, 0);
+        if(speedMode_ != FAST2)
+        {
+            speedMode_ = FAST2;
+            pid_.SetOutputLimits(-maxSpeed_*options_.scopeToMotor_/4, maxSpeed_*options_.scopeToMotor_/4);
+            pid_.SetTunings(options_.KpFast2_, 0, 0);
+        }
     }
     else
     {
         // regular use case
-
-        if(!regularAdjustPID_)
+        if(speedMode_ != REGULAR)
         {
-            ReInitializePID(speed_);
-            regularAdjustPID_ = true;
+            speedMode_ = REGULAR;
+
+            // re-initialize PID
+            pid_.SetMode(MANUAL);
+            output_ = speed_ * options_.scopeToMotor_;
+            pid_.SetMode(AUTOMATIC);
+            motor_->SetSpeed(output_);
         }
 
-        if(diff > options_.diff2_)
+        if(diff > options_.diff1_)
             SetMaxOutputLimits();
         else
         {
-            // If close to setpoint, no backward movement!
-            //if(speed_ > 0)
-            //    pid_.SetOutputLimits(0, maxSpeed_*options_.scopeToMotor_);
-            //else
-            //    pid_.SetOutputLimits(-maxSpeed_*options_.scopeToMotor_, 0);
             double motorSpeed = speed_*options_.scopeToMotor_;
             if(speed_ > 0)
-                pid_.SetOutputLimits(motorSpeed*0.5, motorSpeed*1.5);
+                pid_.SetOutputLimits(motorSpeed*0.5, motorSpeed*2);
             else
-                pid_.SetOutputLimits(motorSpeed*1.5, motorSpeed*0.5);
+                pid_.SetOutputLimits(motorSpeed*2, motorSpeed*0.5);
         }
         pid_.SetTunings(options_.Kp_, options_.Ki_, 0);
     }
@@ -114,15 +119,18 @@ bool SDC_MotorAdapter::Run()
         setpoint_ = round(refScopePos_ + speed_*(ts - ts_));
         input_ = *scopeEncPos_;
 
-        if(ts - lastAdjustPID_ > ADJUST_PID_TMO)
+        if(speedMode_ != REGULAR || ts - lastAdjustPID_ > ADJUST_PID_TMO)
             AdjustPID();
 
         if(pid_.Compute())
         {
-            double curr = motor_->GetSpeed();
-            double next = curr + (output_ - curr)*0.07;
-            //motor_->SetSpeed(output_);
-            motor_->SetSpeed(next);
+            if(speedMode_ != REGULAR)
+                motor_->SetSpeed(output_);
+            else
+            {
+                double curr = motor_->GetSpeed();
+                motor_->SetSpeed(curr + (output_ - curr)*0.07);
+            }
         }
     }
     return true;
@@ -156,10 +164,13 @@ bool SDC_MotorAdapter::Start (double speed, SDC_MotionType *mt, Ref *ref)
     {
         refScopePos_ = *scopeEncPos_;
         ts_ = r.ts_;
-        UpdateSpeed(speed);
+
         if(ref)
             *ref = Ref(refScopePos_, ts_);
-        ReInitializePID(speed_);
+        output_ = speed * options_.scopeToMotor_;
+        pid_.SetMode(AUTOMATIC);
+        speedMode_ = REGULAR;
+        UpdateSpeed(speed);
     }
     return ok;
 }
@@ -171,17 +182,13 @@ bool SDC_MotorAdapter::SetSpeed(double speed, Ref *ref)
     if(speed == speed_)
         return true;
 
-    long sposCurr, tsCurr;
-    DoGetPos(&sposCurr, &tsCurr);
-
-    //refScopePos_ = sposCurr;              // <-- Incorrect!
-    refScopePos_ += speed_*(tsCurr - ts_);  // <-- Correct! To keep the PID state, we must use current LOGICAL position as the next reference point.
+    long tsCurr = millis();
+    refScopePos_ += speed_*(tsCurr - ts_);  // To keep the PID state, we must use current LOGICAL position as the next reference point.
     ts_ = tsCurr;
 
-    UpdateSpeed(speed);
     if(ref)
         *ref = Ref(refScopePos_, ts_);
-    ReInitializePID(speed);
+    UpdateSpeed(speed);
     return motor_->SetSpeed(speed * options_.scopeToMotor_, NULL);
 }
 
@@ -190,20 +197,19 @@ bool SDC_MotorAdapter::SetNextPos(long upos, long ts, bool reset, Ref *ref)
     if(!running_)
         return false;
 
-    long sposCurr, tsCurr;
-    DoGetPos(&sposCurr, &tsCurr);
-    if(ref)
-        *ref = Ref(sposCurr, tsCurr);
+    long tsCurr = millis();
     if((ts > tsCurr ? ts - tsCurr : tsCurr - ts) > 10)   // ignore if timestamps are closer than 10 ms, due to bad accuracy
     {
-        //refScopePos_ = sposCurr;              // <-- Incorrect!
-        refScopePos_ += speed_*(tsCurr - ts_);  // <-- Correct! To keep the PID state, we must use current LOGICAL position as the next reference point.
+        refScopePos_ += speed_*(tsCurr - ts_);  // To keep the PID state, we must use current LOGICAL position as the next reference point.
         ts_ = tsCurr;
 
+        if(ref)
+            *ref = Ref(refScopePos_, ts_);
         UpdateSpeed(double(upos - refScopePos_)/double(ts - ts_));
-        ReInitializePID(speed_);
         return motor_->SetSpeed(speed_ * options_.scopeToMotor_, NULL);
     }
+    else if(ref)
+        *ref = Ref(*scopeEncPos_, tsCurr);
     return false;
 }
 
@@ -215,10 +221,4 @@ void SDC_MotorAdapter::Stop()
         UpdateSpeed(0);
         mt_ = NULL;
     }
-}
-
-void SDC_MotorAdapter::DoGetPos(long *spos, long *ts)
-{
-    *ts = millis();
-    *spos = *scopeEncPos_;
 }

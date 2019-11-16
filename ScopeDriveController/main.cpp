@@ -71,17 +71,21 @@ SDC_Motor motorAZM(SDC_Motor::Options(60*RESOLUTION/60000, 0.5, 0.4), DIR2_OPIN,
 SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(223.3,    // ratio
                                                       0.1,      // Kp factor (only factor; Ki is calculated)
                                                       1.0,      // Ki factor (only factor; Kp is calculated)
-                                                      0.5,      // Kp for fast movement factor
-                                                      6.0,      // diff 1 (deviation allowing fast movement)
-                                                      3.0),     // diff 2 (deviation allowing backward movement and no speed restrictions)
+                                                      0.4,      // Kp for fast movement
+                                                      0.7,      // Kp for very fast movement
+                                                      3.0,      // diff 1 (deviation allowing backward movement and no speed restrictions)
+                                                      6.0,      // diff 2 (deviation allowing fast movement)
+                                                      15.0),    // diff 3 (deviation allowing very fast movement)
                             SDC_GetAltEncoderPositionPtr(),
                             &motorALT);
 SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(177.1,    // ratio
                                                       0.1,      // Kp factor
                                                       1.0,      // Ki factor
-                                                      0.5,      // Kp for fast movement factor
-                                                      6.0,      // diff 1
-                                                      3.0),     // diff 2
+                                                      0.4,      // Kp for fast movement factor
+                                                      0.7,      // Kp for very fast movement
+                                                      3.0,      // diff 1
+                                                      6.0,      // diff 2
+                                                      15.0),    // diff 3
                             SDC_GetAzmEncoderPositionPtr(),
                             &motorAZM);
 
