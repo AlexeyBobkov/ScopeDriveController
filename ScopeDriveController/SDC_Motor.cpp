@@ -27,13 +27,6 @@ void SDC_Motor::Setup()
 
 bool SDC_Motor::Run()
 {
-    long uposCurr, tsCurr;
-    DoGetPos(&uposCurr, &tsCurr);
-
-    setpoint_ = upos_ + speed_*(tsCurr - ts_);
-    input_ = uposCurr;
-    pid_.Compute();
-
     if(!running_)
         return true;
     if(mt_ && !mt_->CanMove(this))
@@ -43,6 +36,13 @@ bool SDC_Motor::Run()
         mt->MotorStopped(this, false);
         return true;
     }
+
+    long uposCurr, tsCurr;
+    DoGetPos(&uposCurr, &tsCurr);
+
+    setpoint_ = upos_ + speed_*(tsCurr - ts_);
+    input_ = uposCurr;
+    pid_.Compute();
 
     int sp;
     uint8_t direction;
@@ -66,7 +66,7 @@ bool SDC_Motor::Run()
     return true;
 }
 
-bool SDC_Motor::GetPos(Ref *ref, long *setpoint, long *dbgParam) const
+bool SDC_Motor::GetPhysicalPos(Ref *ref, long *setpoint, long *dbgParam) const
 {
     if(ref)
         *ref = Ref(*encPos_, millis());
@@ -74,6 +74,26 @@ bool SDC_Motor::GetPos(Ref *ref, long *setpoint, long *dbgParam) const
         *setpoint = (long)setpoint_;
     if(dbgParam)
         *dbgParam = output_;
+    return running_;
+}
+
+bool SDC_Motor::GetLogicalPos(Ref *ref) const
+{
+    if(ref)
+    {
+        long tsCurr = millis();
+        *ref = Ref(running_ ? (upos_ + speed_*(tsCurr - ts_)) : *encPos_, tsCurr);
+    }
+    return running_;
+}
+
+bool SDC_Motor::GetDeviation(Ref *ref) const
+{
+    if(ref)
+    {
+        long tsCurr = millis();
+        *ref = Ref(running_ ? (upos_ + speed_*(tsCurr - ts_) - *encPos_) : 0, tsCurr);
+    }
     return running_;
 }
 

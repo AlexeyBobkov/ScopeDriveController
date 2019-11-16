@@ -205,7 +205,7 @@ static void PollMotor(byte buf[], int, int)
     SDC_MotorItf::Ref ref;
     long setpoint;
     long dbg;
-    byte running = GetMotor(buf[0])->GetPos(&ref, &setpoint, &dbg) ? 1 : 0;
+    byte running = GetMotor(buf[0])->GetPhysicalPos(&ref, &setpoint, &dbg) ? 1 : 0;
     printHex2(ref.upos_);
     printHex2(ref.ts_);
     printHex2(setpoint);
