@@ -166,7 +166,7 @@ bool SDC_MotorAdapter::IsRunning() const
     return running_;
 }
 
-bool SDC_MotorAdapter::GetPos(Ref *ref, long *setpoint, long *dbgParam) const
+bool SDC_MotorAdapter::GetPhysicalPos(Ref *ref, long *setpoint, long *dbgParam) const
 {
     if(ref)
         *ref = Ref(*scopeEncPos_, millis());
@@ -175,6 +175,26 @@ bool SDC_MotorAdapter::GetPos(Ref *ref, long *setpoint, long *dbgParam) const
     if(dbgParam)
         *dbgParam = output_ * 1000;
     return motor_->IsRunning();
+}
+
+bool SDC_MotorAdapter::GetLogicalPos(Ref *ref) const
+{
+    if(ref)
+    {
+        long tsCurr = millis();
+        *ref = Ref(running_ ? (refScopePos_ + speed_*(tsCurr - ts_)) : *scopeEncPos_, tsCurr);
+    }
+    return running_;
+}
+
+bool SDC_MotorAdapter::GetDeviation(Ref *ref) const
+{
+    if(ref)
+    {
+        long tsCurr = millis();
+        *ref = Ref(running_ ? (refScopePos_ + speed_*(tsCurr - ts_) - *scopeEncPos_) : 0, tsCurr);
+    }
+    return running_;
 }
 
 bool SDC_MotorAdapter::Start (double speed, SDC_MotionType *mt, Ref *ref)

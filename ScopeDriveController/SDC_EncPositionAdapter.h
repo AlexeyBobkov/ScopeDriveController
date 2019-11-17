@@ -34,7 +34,9 @@ public:
 
     // SDC_MotorItf
     bool IsRunning() const;
-    bool GetPos(Ref *ref, long *setpoint, long *dbgParam) const;
+    bool GetPhysicalPos(Ref *ref, long *setpoint, long *dbgParam) const;
+    bool GetLogicalPos(Ref *ref) const;
+    bool GetDeviation(Ref *ref) const;
     double GetMaxSpeed() const {return motor_->GetMaxSpeed() / options_.scopeToMotor_;}
     double GetSpeed() const {return speed_;}
     bool Start (double speed, SDC_MotionType *mt, Ref *ref);

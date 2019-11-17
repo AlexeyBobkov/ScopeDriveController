@@ -35,7 +35,9 @@ public:
     virtual ~SDC_MotorItf() {}
 
     virtual bool IsRunning() const = 0;
-    virtual bool GetPos(Ref *ref, long *setpoint = NULL, long *dbgParam = NULL) const = 0;
+    virtual bool GetPhysicalPos(Ref *ref, long *setpoint = NULL, long *dbgParam = NULL) const = 0;
+    virtual bool GetLogicalPos(Ref *ref) const = 0;
+    virtual bool GetDeviation(Ref *ref) const = 0;
     virtual double GetSpeed() const = 0;
     virtual double GetMaxSpeed() const = 0;
 
@@ -73,7 +75,9 @@ public:
 
     // SDC_MotorItf
     bool IsRunning() const {return running_;}
-    bool GetPos(Ref *ref, long *setpoint, long *dbgParam) const;
+    bool GetPhysicalPos(Ref *ref, long *setpoint, long *dbgParam) const;
+    bool GetLogicalPos(Ref *ref) const;
+    bool GetDeviation(Ref *ref) const;
     double GetMaxSpeed() const {return maxSpeed_;}
     double GetSpeed() const {return speed_;}
     bool Start (double speed, SDC_MotionType *mt, Ref *ref);

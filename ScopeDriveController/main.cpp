@@ -187,7 +187,7 @@ static void PollMotor(byte buf[], int, int)
     SDC_MotorItf::Ref ref;
     long setpoint;
     long dbg;
-    byte running = GetMotor(buf[0])->GetPos(&ref, &setpoint, &dbg) ? 1 : 0;
+    byte running = GetMotor(buf[0])->GetPhysicalPos(&ref, &setpoint, &dbg) ? 1 : 0;
     printHex2(ref.upos_);
     printHex2(ref.ts_);
     printHex2(setpoint);
@@ -215,24 +215,38 @@ static void PollMotor(byte buf[], int, int)
 #define LOG_PERIOD      200     // ms
 #define MSPEED_SCALE    4000    // motor speed scale
 
+#define LMODE_ALT       0
+#define LMODE_AZM       0x8000
+
+#define LMODE_FIRST     LMODE_MPOS
+#define LMODE_MPOS      1
+#define LMODE_MLOG      2
+#define LMODE_MSPD      4
+#define LMODE_MERR      8
+#define LMODE_APOS      0x10
+#define LMODE_ALOG      0x20
+#define LMODE_ASPD      0x40
+#define LMODE_AERR      0x80
+#define LMODE_LAST      (LMODE_AERR<<1)
+
 #define LMODE_OFF           0
-#define LMODE_POS_M_ALT     2
-#define LMODE_POS_M_AZM     3
-#define LMODE_SPD_M_ALT     4
-#define LMODE_SPD_M_AZM     5
-#define LMODE_SPD_A_ALT     6
-#define LMODE_SPD_A_AZM     7
+#define LMODE_POS_M_ALT     (LMODE_MPOS|LMODE_ALT)
+#define LMODE_POS_M_AZM     (LMODE_MPOS|LMODE_AZM)
+#define LMODE_SPD_M_ALT     (LMODE_MSPD|LMODE_ALT)
+#define LMODE_SPD_M_AZM     (LMODE_MSPD|LMODE_AZM)
+#define LMODE_SPD_A_ALT     (LMODE_ASPD|LMODE_ALT)
+#define LMODE_SPD_A_AZM     (LMODE_ASPD|LMODE_AZM)
 
 struct LoggingData
 {
     byte buf[4];
 
     LoggingData() {}
-    LoggingData(byte mode, byte hiAbsPos, byte hiAbsTs) // re-synchronize
+    LoggingData(byte unused, byte hiAbs1, byte hiAbs2, byte hiAbsTs) // re-synchronize
     {
-        buf[0] = hiAbsPos;
-        buf[1] = hiAbsTs;
-        buf[2] = mode;
+        buf[0] = ((hiAbs2 & 0x80) >> 5) | ((hiAbs1 & 0x80) >> 6) | (hiAbsTs >> 7);
+        buf[1] = 0;
+        buf[2] = 0;
         buf[3] = 0x80;
     }
     LoggingData(long v) // absolute
@@ -240,20 +254,20 @@ struct LoggingData
         buf[0] = v;
         buf[1] = v >> 8;
         buf[2] = v >> 16;
-        buf[3] = 0;
+        buf[3] = ((v >> 24) & 0x7f);
     }
-    LoggingData(uint16_t relPos, uint16_t relTs) // relative
+    LoggingData(uint16_t rel1, uint16_t rel2) // relative
     {
-        buf[0] = relPos;
-        buf[1] = relPos >> 8;
-        buf[2] = relTs;
-        buf[3] = relTs >> 8;
+        buf[0] = rel1;
+        buf[1] = rel1 >> 8;
+        buf[2] = rel2;
+        buf[3] = rel2 >> 8;
     }
 };
 
-static byte gLoggingMode        = LMODE_OFF;
+static uint16_t gLoggingMode    = LMODE_OFF;
 static int gCntSinceLastSync    = CNT_BEFORE_SYNC;
-static long gAbsPos, gAbsTs;
+static long gAbsPos0, gAbsPos1, gAbsTs;
 static RingBuffer<LoggingData, 100> gRingBuf;
 
 static void ReportLogging(byte buf[])
@@ -294,7 +308,7 @@ static void PositionLogging(byte buf[], int, int)
 
     case 'm':   // set mode
         {
-            int newLoggingMode = buf[1];
+            uint16_t newLoggingMode = (uint16_t(buf[2]) << 8) + uint16_t(buf[1]);
             if(gLoggingMode != newLoggingMode)
             {
                 gRingBuf.clear();
@@ -310,12 +324,56 @@ static void PositionLogging(byte buf[], int, int)
         break;
     }
 }
+
 static void LogData()
 {
     long ts;
     if(gLoggingMode == LMODE_OFF || (ts = millis()) < gAbsTs + (gCntSinceLastSync+1)*LOG_PERIOD)
         return;
 
+    int i = 0;
+    long pos[2] = {0, 0};
+    for(uint16_t mask = LMODE_FIRST; mask != LMODE_LAST; mask <<= 1)
+    {
+        if(gLoggingMode & mask)
+        {
+            SDC_MotorItf::Ref ref;
+            if(gLoggingMode & LMODE_AZM)
+            {
+                switch(mask)
+                {
+                default: break;
+                case LMODE_MPOS:    pos[i] = *SDC_GetMotorAzmEncoderPositionPtr(); break;
+                case LMODE_MLOG:    motorAZM.GetLogicalPos(&ref); pos[i] = ref.upos_; break;
+                case LMODE_MSPD:    pos[i] = long(motorAZM.GetSpeed()*MSPEED_SCALE); break;
+                case LMODE_MERR:    motorAZM.GetDeviation(&ref); pos[i] = ref.upos_; break;
+                case LMODE_APOS:    pos[i] = *SDC_GetAzmEncoderPositionPtr(); break;
+                case LMODE_ALOG:    adapterAZM.GetLogicalPos(&ref); pos[i] = ref.upos_; break;
+                case LMODE_ASPD:    pos[i] = long(adapterAZM.GetSpeed()*MSPEED_SCALE); break;
+                case LMODE_AERR:    adapterAZM.GetDeviation(&ref); pos[i] = ref.upos_; break;
+                }
+            }
+            else
+            {
+                switch(mask)
+                {
+                default: break;
+                case LMODE_MPOS:    pos[i] = *SDC_GetMotorAltEncoderPositionPtr(); break;
+                case LMODE_MLOG:    motorALT.GetLogicalPos(&ref); pos[i] = ref.upos_; break;
+                case LMODE_MSPD:    pos[i] = long(motorALT.GetSpeed()*MSPEED_SCALE); break;
+                case LMODE_MERR:    motorALT.GetDeviation(&ref); pos[i] = ref.upos_; break;
+                case LMODE_APOS:    pos[i] = *SDC_GetAltEncoderPositionPtr(); break;
+                case LMODE_ALOG:    adapterALT.GetLogicalPos(&ref); pos[i] = ref.upos_; break;
+                case LMODE_ASPD:    pos[i] = long(adapterALT.GetSpeed()*MSPEED_SCALE); break;
+                case LMODE_AERR:    adapterALT.GetDeviation(&ref); pos[i] = ref.upos_; break;
+                }
+            }
+            if(++i >= 2)
+                break;
+        }        
+    }
+
+    /*
     long pos;
     switch(gLoggingMode)
     {
@@ -327,16 +385,19 @@ static void LogData()
     case LMODE_SPD_A_ALT:   pos = long(adapterALT.GetSpeed()*MSPEED_SCALE); break;
     case LMODE_SPD_A_AZM:   pos = long(adapterAZM.GetSpeed()*MSPEED_SCALE); break;
     }
+    */
 
     if(++gCntSinceLastSync <= CNT_BEFORE_SYNC)
-        gRingBuf.push_back(LoggingData(uint16_t(pos - gAbsPos), uint16_t(ts - gAbsTs)));
+        gRingBuf.push_back(LoggingData(uint16_t(pos[0] - gAbsPos0), uint16_t(pos[1] - gAbsPos1)));
     else
     {
         // resynchronize
         gCntSinceLastSync = 0;
-        gRingBuf.push_back(LoggingData(gLoggingMode, byte(pos>>24), byte(ts>>24)));
-        gRingBuf.push_back(LoggingData(gAbsPos = pos));
-        gRingBuf.push_back(LoggingData(gAbsTs = ts));
+        gAbsTs = ts;
+        gRingBuf.push_back(LoggingData(0, byte(pos[0]>>24), byte(pos[1]>>24), byte(ts>>24)));
+        gRingBuf.push_back(LoggingData(ts));
+        gRingBuf.push_back(LoggingData(gAbsPos0 = pos[0]));
+        gRingBuf.push_back(LoggingData(gAbsPos1 = pos[1]));
     }
 }
 
@@ -474,7 +535,7 @@ static void ProcessSerialCommand(char inchar)
 
 #ifdef LOGGING_ON
     case 'L':   // position logging
-        SetSerialBuf(2, PositionLogging);
+        SetSerialBuf(3, PositionLogging);
         break;
 #endif
 
