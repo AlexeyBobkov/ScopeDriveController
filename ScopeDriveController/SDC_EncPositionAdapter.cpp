@@ -8,14 +8,15 @@
 #include <Arduino.h>
 #include <float.h>
 
+#include "SDC_Configuration.h"
 #include "SDC_EncPositionAdapter.h"
 
 const long ADJUST_PID_TMO = 1000;
 
-SDC_MotorAdapter::SDC_MotorAdapter(const Options &options, volatile long *scopeEncPos, SDC_MotorItf *motor)
-    :   options_(options), scopeEncPos_(scopeEncPos), motor_(motor),
+SDC_MotorAdapter::SDC_MotorAdapter(const Options &options, long encRes, volatile long *scopeEncPos, SDC_MotorItf *motor)
+    :   options_(options), normalSpeed_(encRes/(24.0*60.0*60.0*1000.0)), scopeEncPos_(scopeEncPos), motor_(motor),
         maxSpeed_(motor_->GetMaxSpeed() / options_.scopeToMotor_), running_(false), mt_(NULL), output_(0), lastAdjustPID_(0), speedMode_(REGULAR),
-        pid_(&input_, &output_, &setpoint_, 1.0, 0.0, 0.0, DIRECT)
+        diff1_(0), diff2_(0), diff3_(0), pid_(&input_, &output_, &setpoint_, 1.0, 0.0, 0.0, DIRECT)
 {
     double A = 1000.0/options_.scopeToMotor_;
     options_.Kp_ *= 1/A;
@@ -39,13 +40,30 @@ void SDC_MotorAdapter::SetMaxOutputLimits()
     pid_.SetOutputLimits(-maxSpeed_*options_.scopeToMotor_, maxSpeed_*options_.scopeToMotor_);
 }
 
+
 void SDC_MotorAdapter::UpdateSpeed(double speed)
 {
     if(speed > maxSpeed_)
         speed = maxSpeed_;
     else if(speed < -maxSpeed_)
         speed = -maxSpeed_;
+
+    double s = speed > 0 ? speed : -speed;
+
+    diff1_ = options_.diff1_*s/normalSpeed_;
+    if(diff1_ < 2)
+        diff1_ = 2;
+
+    diff2_ = options_.diff2_*s/normalSpeed_;
+    if(diff2_ < 3)
+        diff2_ = 3;
+
+    diff3_ = options_.diff3_*s/normalSpeed_;
+    if(diff3_ < 7)
+        diff3_ = 7;
+
     speed_ = speed;
+
     if(running_)
         AdjustPID();
     else
@@ -61,7 +79,7 @@ void SDC_MotorAdapter::AdjustPID()
     if(diff < 0)
         diff = -diff;
 
-    if(diff > options_.diff3_)
+    if(diff > diff3_)
     {
         // very fast movement
         if(speedMode_ != FAST3)
@@ -71,13 +89,13 @@ void SDC_MotorAdapter::AdjustPID()
             pid_.SetTunings(options_.KpFast3_, 0, 0);
         }
     }
-    else if(diff > options_.diff2_)
+    else if(diff > diff2_)
     {
         // fast movement
         if(speedMode_ != FAST2)
         {
             speedMode_ = FAST2;
-            pid_.SetOutputLimits(-maxSpeed_*options_.scopeToMotor_/4, maxSpeed_*options_.scopeToMotor_/4);
+            pid_.SetOutputLimits(-maxSpeed_*options_.scopeToMotor_/8, maxSpeed_*options_.scopeToMotor_/8);
             pid_.SetTunings(options_.KpFast2_, 0, 0);
         }
     }
@@ -95,7 +113,7 @@ void SDC_MotorAdapter::AdjustPID()
             motor_->SetSpeed(output_);
         }
 
-        if(diff > options_.diff1_)
+        if(diff > diff1_)
             SetMaxOutputLimits();
         else
         {
@@ -157,7 +175,7 @@ bool SDC_MotorAdapter::GetLogicalPos(Ref *ref) const
     if(ref)
     {
         long tsCurr = millis();
-        *ref = Ref(running_ ? (refScopePos_ + speed_*(tsCurr - ts_)) : *scopeEncPos_, tsCurr);
+        *ref = Ref(running_ ? round(refScopePos_ + speed_*(tsCurr - ts_)) : *scopeEncPos_, tsCurr);
     }
     return running_;
 }
@@ -167,7 +185,7 @@ bool SDC_MotorAdapter::GetDeviation(Ref *ref) const
     if(ref)
     {
         long tsCurr = millis();
-        *ref = Ref(running_ ? (refScopePos_ + speed_*(tsCurr - ts_) - *scopeEncPos_) : 0, tsCurr);
+        *ref = Ref(running_ ? round(refScopePos_ + speed_*(tsCurr - ts_) - *scopeEncPos_) : 0, tsCurr);
     }
     return running_;
 }
@@ -203,13 +221,13 @@ bool SDC_MotorAdapter::SetSpeed(double speed, Ref *ref)
         return true;
 
     long tsCurr = millis();
-    refScopePos_ += speed_*(tsCurr - ts_);  // To keep the PID state, we must use current LOGICAL position as the next reference point.
+    refScopePos_ += round(speed_*(tsCurr - ts_));  // To keep the PID state, we must use current LOGICAL position as the next reference point.
     ts_ = tsCurr;
 
     if(ref)
         *ref = Ref(refScopePos_, ts_);
     UpdateSpeed(speed);
-    return true; //motor_->SetSpeed(speed * options_.scopeToMotor_, NULL);
+    return true;
 }
 
 bool SDC_MotorAdapter::SetNextPos(long upos, long ts, bool reset, Ref *ref)
@@ -220,13 +238,13 @@ bool SDC_MotorAdapter::SetNextPos(long upos, long ts, bool reset, Ref *ref)
     long tsCurr = millis();
     if((ts > tsCurr ? ts - tsCurr : tsCurr - ts) > 10)   // ignore if timestamps are closer than 10 ms, due to bad accuracy
     {
-        refScopePos_ += speed_*(tsCurr - ts_);  // To keep the PID state, we must use current LOGICAL position as the next reference point.
+        refScopePos_ += round(speed_*(tsCurr - ts_));  // To keep the PID state, we must use current LOGICAL position as the next reference point.
         ts_ = tsCurr;
 
         if(ref)
             *ref = Ref(refScopePos_, ts_);
         UpdateSpeed(double(upos - refScopePos_)/double(ts - ts_));
-        return true; //motor_->SetSpeed(speed_ * options_.scopeToMotor_, NULL);
+        return true;
     }
     else if(ref)
         *ref = Ref(*scopeEncPos_, tsCurr);

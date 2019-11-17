@@ -21,9 +21,6 @@
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////////////
-const long RESOLUTION = 1000*4;
-
-///////////////////////////////////////////////////////////////////////////////////////
 static void printHex(long val)
 {
     byte buf[2];
@@ -65,8 +62,8 @@ IntlkMotionType intlk;
 // As a real motor is not ideal and has some threshold voltage to start rotation, it may be better to make the Ki smaller than the theoretical value.
 // The system stabilizes slower but oscillates less on slow speeds. (Is oscillation on slow speed really a problem?)
 //
-SDC_Motor motorALT(SDC_Motor::Options(30*RESOLUTION/60000, 1.0, 0.8), DIR1_OPIN, PWMA_OPIN, SDC_GetMotorAltEncoderPositionPtr());   // 30rpm
-SDC_Motor motorAZM(SDC_Motor::Options(60*RESOLUTION/60000, 0.5, 0.4), DIR2_OPIN, PWMB_OPIN, SDC_GetMotorAzmEncoderPositionPtr());   // 60rpm
+SDC_Motor motorALT(SDC_Motor::Options(30*M_RESOLUTION/60000, 1.0, 0.8), DIR1_OPIN, PWMA_OPIN, SDC_GetMotorAltEncoderPositionPtr());   // 30rpm
+SDC_Motor motorAZM(SDC_Motor::Options(60*M_RESOLUTION/60000, 0.5, 0.4), DIR2_OPIN, PWMB_OPIN, SDC_GetMotorAzmEncoderPositionPtr());   // 60rpm
 
 SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(223.3,    // ratio
                                                       0.1,      // Kp factor (only factor; Ki is calculated)
@@ -76,6 +73,7 @@ SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(223.3,    // ratio
                                                       3.0,      // diff 1 (deviation allowing backward movement and no speed restrictions)
                                                       6.0,      // diff 2 (deviation allowing fast movement)
                                                       15.0),    // diff 3 (deviation allowing very fast movement)
+                            SDC_GetAltEncoderResolution(),
                             SDC_GetAltEncoderPositionPtr(),
                             &motorALT);
 SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(177.1,    // ratio
@@ -86,6 +84,7 @@ SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(177.1,    // ratio
                                                       3.0,      // diff 1
                                                       6.0,      // diff 2
                                                       15.0),    // diff 3
+                            SDC_GetAzmEncoderResolution(),
                             SDC_GetAzmEncoderPositionPtr(),
                             &motorAZM);
 

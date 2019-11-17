@@ -40,7 +40,7 @@ bool SDC_Motor::Run()
     long uposCurr, tsCurr;
     DoGetPos(&uposCurr, &tsCurr);
 
-    setpoint_ = upos_ + speed_*(tsCurr - ts_);
+    setpoint_ = round(upos_ + speed_*(tsCurr - ts_));
     input_ = uposCurr;
     pid_.Compute();
 
@@ -82,7 +82,7 @@ bool SDC_Motor::GetLogicalPos(Ref *ref) const
     if(ref)
     {
         long tsCurr = millis();
-        *ref = Ref(running_ ? (upos_ + speed_*(tsCurr - ts_)) : *encPos_, tsCurr);
+        *ref = Ref(running_ ? round(upos_ + speed_*(tsCurr - ts_)) : *encPos_, tsCurr);
     }
     return running_;
 }
@@ -92,7 +92,7 @@ bool SDC_Motor::GetDeviation(Ref *ref) const
     if(ref)
     {
         long tsCurr = millis();
-        *ref = Ref(running_ ? (upos_ + speed_*(tsCurr - ts_) - *encPos_) : 0, tsCurr);
+        *ref = Ref(running_ ? round(upos_ + speed_*(tsCurr - ts_) - *encPos_) : 0, tsCurr);
     }
     return running_;
 }
@@ -131,8 +131,7 @@ bool SDC_Motor::SetSpeed(double speed, Ref *ref)
         long uposCurr, tsCurr;
         DoGetPos(&uposCurr, &tsCurr);
 
-        //upos_ = uposCurr;             // <-- Incorrect!
-        upos_ += speed_*(tsCurr - ts_); // <-- Correct! To keep the PID state, we must use current LOGICAL position as the next reference point.
+        upos_ += round(speed_*(tsCurr - ts_)); // To keep the PID state, we must use current LOGICAL position as the next reference point.
         ts_ = tsCurr;
 
         speed_ = speed;
@@ -151,8 +150,7 @@ bool SDC_Motor::SetNextPos(long upos, long ts, bool reset, Ref *ref)
     DoGetPos(&uposCurr, &tsCurr);
     if((ts > tsCurr ? ts - tsCurr : tsCurr - ts) > 10)   // ignore if timestamps are closer than 10 ms, due to bad accuracy
     {
-        //upos_ = uposCurr;             // <-- Incorrect!
-        upos_ += speed_*(tsCurr - ts_); // <-- Correct! To keep the PID state, we must use current LOGICAL position as the next reference point.
+        upos_ += round(speed_*(tsCurr - ts_)); // To keep the PID state, we must use current LOGICAL position as the next reference point.
         ts_ = tsCurr;
 
         speed_ = double(upos - uposCurr)/double(ts - tsCurr);

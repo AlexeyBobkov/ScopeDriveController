@@ -32,7 +32,7 @@ public:
         FAST3
     };
 
-    SDC_MotorAdapter(const Options &options, volatile long *scopeEncPos, SDC_MotorItf *motor);
+    SDC_MotorAdapter(const Options &options, long encRes, volatile long *scopeEncPos, SDC_MotorItf *motor);
 
     // call once in setup()
     void Setup();
@@ -60,6 +60,7 @@ public:
 
 private:
     Options options_;
+    double normalSpeed_;
     volatile long *scopeEncPos_;
     SDC_MotorItf *motor_;
 
@@ -72,6 +73,7 @@ private:
     double setpoint_, input_, output_;
     long lastAdjustPID_;
     SpeedMode speedMode_;
+    double diff1_, diff2_, diff3_;
     PID pid_;
 
     void UpdateSpeed(double speed);
