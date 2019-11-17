@@ -66,7 +66,7 @@ SDC_Motor motorALT(SDC_Motor::Options(30*M_RESOLUTION/60000, 1.0, 0.8), DIR1_OPI
 SDC_Motor motorAZM(SDC_Motor::Options(60*M_RESOLUTION/60000, 0.5, 0.4), DIR2_OPIN, PWMB_OPIN, SDC_GetMotorAzmEncoderPositionPtr());   // 60rpm
 
 SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(223.3,    // ratio
-                                                      0.1,      // Kp factor (only factor; Ki is calculated)
+                                                      0.04,     // Kp factor (only factor; Ki is calculated)
                                                       1.0,      // Ki factor (only factor; Kp is calculated)
                                                       0.4,      // Kp for fast movement
                                                       0.7,      // Kp for very fast movement
@@ -77,7 +77,7 @@ SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(223.3,    // ratio
                             SDC_GetAltEncoderPositionPtr(),
                             &motorALT);
 SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(177.1,    // ratio
-                                                      0.1,      // Kp factor
+                                                      0.04,     // Kp factor
                                                       1.0,      // Ki factor
                                                       0.4,      // Kp for fast movement factor
                                                       0.7,      // Kp for very fast movement
@@ -228,9 +228,10 @@ static void PollMotor(byte buf[], int, int)
 ///////////////////////////////////////////////////////////////////////////////////////
 #ifdef LOGGING_ON
 
-#define CNT_BEFORE_SYNC 50      // count between re-sync
-#define LOG_PERIOD      200     // ms
-#define MSPEED_SCALE    4000    // motor speed scale
+#define CNT_BEFORE_SYNC 50          // count between re-sync
+#define LOG_PERIOD      200         // ms
+#define MSPEED_SCALE    4000        // motor speed scale
+#define ASPEED_SCALE    600000.0    // adapter speed scale
 
 #define LMODE_ALT       0
 #define LMODE_AZM       0x8000
@@ -247,12 +248,6 @@ static void PollMotor(byte buf[], int, int)
 #define LMODE_LAST      (LMODE_AERR<<1)
 
 #define LMODE_OFF           0
-#define LMODE_POS_M_ALT     (LMODE_MPOS|LMODE_ALT)
-#define LMODE_POS_M_AZM     (LMODE_MPOS|LMODE_AZM)
-#define LMODE_SPD_M_ALT     (LMODE_MSPD|LMODE_ALT)
-#define LMODE_SPD_M_AZM     (LMODE_MSPD|LMODE_AZM)
-#define LMODE_SPD_A_ALT     (LMODE_ASPD|LMODE_ALT)
-#define LMODE_SPD_A_AZM     (LMODE_ASPD|LMODE_AZM)
 
 struct LoggingData
 {
@@ -366,7 +361,7 @@ static void LogData()
                 case LMODE_MERR:    motorAZM.GetDeviation(&ref); pos[i] = ref.upos_; break;
                 case LMODE_APOS:    pos[i] = *SDC_GetAzmEncoderPositionPtr(); break;
                 case LMODE_ALOG:    adapterAZM.GetLogicalPos(&ref); pos[i] = ref.upos_; break;
-                case LMODE_ASPD:    pos[i] = long(adapterAZM.GetSpeed()*MSPEED_SCALE); break;
+                case LMODE_ASPD:    pos[i] = long(adapterAZM.GetSpeed()*ASPEED_SCALE); break;
                 case LMODE_AERR:    adapterAZM.GetDeviation(&ref); pos[i] = ref.upos_; break;
                 }
             }
@@ -381,7 +376,7 @@ static void LogData()
                 case LMODE_MERR:    motorALT.GetDeviation(&ref); pos[i] = ref.upos_; break;
                 case LMODE_APOS:    pos[i] = *SDC_GetAltEncoderPositionPtr(); break;
                 case LMODE_ALOG:    adapterALT.GetLogicalPos(&ref); pos[i] = ref.upos_; break;
-                case LMODE_ASPD:    pos[i] = long(adapterALT.GetSpeed()*MSPEED_SCALE); break;
+                case LMODE_ASPD:    pos[i] = long(adapterALT.GetSpeed()*ASPEED_SCALE); break;
                 case LMODE_AERR:    adapterALT.GetDeviation(&ref); pos[i] = ref.upos_; break;
                 }
             }
@@ -389,20 +384,6 @@ static void LogData()
                 break;
         }        
     }
-
-    /*
-    long pos;
-    switch(gLoggingMode)
-    {
-    default: return;
-    case LMODE_POS_M_ALT:   pos = *SDC_GetMotorAltEncoderPositionPtr(); break;
-    case LMODE_POS_M_AZM:   pos = *SDC_GetMotorAzmEncoderPositionPtr(); break;
-    case LMODE_SPD_M_ALT:   pos = long(motorALT.GetSpeed()*MSPEED_SCALE); break;
-    case LMODE_SPD_M_AZM:   pos = long(motorAZM.GetSpeed()*MSPEED_SCALE); break;
-    case LMODE_SPD_A_ALT:   pos = long(adapterALT.GetSpeed()*MSPEED_SCALE); break;
-    case LMODE_SPD_A_AZM:   pos = long(adapterAZM.GetSpeed()*MSPEED_SCALE); break;
-    }
-    */
 
     if(++gCntSinceLastSync <= CNT_BEFORE_SYNC)
         gRingBuf.push_back(LoggingData(uint16_t(pos[0] - gAbsPos0), uint16_t(pos[1] - gAbsPos1)));

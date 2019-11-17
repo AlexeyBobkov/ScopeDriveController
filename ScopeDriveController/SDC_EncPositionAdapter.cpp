@@ -24,6 +24,10 @@ SDC_MotorAdapter::SDC_MotorAdapter(const Options &options, long encRes, volatile
     options_.KpFast3_ *= 1/A;
     options_.Ki_ *= (options_.Kp_*options_.Kp_) * A / 4;
 
+    maxMotorSpeedDeviation_ = options_.scopeToMotor_*normalSpeed_/3;
+    if(maxMotorSpeedDeviation_ < options_.Kp_)
+        maxMotorSpeedDeviation_ = options_.Kp_;
+
     pid_.SetTunings(options_.Kp_, options_.Ki_, 0);
     pid_.SetSampleTime(300);
     SetMaxOutputLimits();
@@ -118,10 +122,7 @@ void SDC_MotorAdapter::AdjustPID()
         else
         {
             double motorSpeed = speed_*options_.scopeToMotor_;
-            if(speed_ > 0)
-                pid_.SetOutputLimits(motorSpeed*0.5, motorSpeed*2);
-            else
-                pid_.SetOutputLimits(motorSpeed*2, motorSpeed*0.5);
+            pid_.SetOutputLimits(motorSpeed - maxMotorSpeedDeviation_, motorSpeed + maxMotorSpeedDeviation_);
         }
         pid_.SetTunings(options_.Kp_, options_.Ki_, 0);
     }

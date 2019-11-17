@@ -74,6 +74,7 @@ private:
     long lastAdjustPID_;
     SpeedMode speedMode_;
     double diff1_, diff2_, diff3_;
+    double maxMotorSpeedDeviation_;
     PID pid_;
 
     void UpdateSpeed(double speed);
