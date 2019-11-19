@@ -26,16 +26,16 @@ class SDC_MotorItf
 public:
     struct Ref
     {
-        long upos_;     // position in encoder units
+        double upos_;   // position in encoder units
         long ts_;       // timestamp in milliseconds
         Ref() {}
-        Ref(long upos, long ts) : upos_(upos), ts_(ts) {}
+        Ref(double upos, long ts) : upos_(upos), ts_(ts) {}
     };
 
     virtual ~SDC_MotorItf() {}
 
     virtual bool IsRunning() const = 0;
-    virtual bool GetPhysicalPos(Ref *ref, long *setpoint = NULL, long *dbgParam = NULL) const = 0;
+    virtual bool GetPhysicalPos(Ref *ref, double *setpoint = NULL, double *dbgParam = NULL) const = 0;
     virtual bool GetLogicalPos(Ref *ref) const = 0;
     virtual bool GetDeviation(Ref *ref) const = 0;
     virtual double GetSpeed() const = 0;
@@ -45,7 +45,7 @@ public:
                         SDC_MotionType *mt,                 // motion callback
                         Ref *ref = NULL) = 0;               // starting position and timestamp
     virtual bool SetSpeed(double speed, Ref *ref = NULL);   // speed is in encoder units/ms
-    virtual bool SetNextPos(long upos, long ts, bool reset, Ref *ref = NULL) = 0;
+    virtual bool SetNextPos(double upos, long ts, bool reset, Ref *ref = NULL) = 0;
     virtual void Stop() = 0;
 };
 
@@ -75,14 +75,14 @@ public:
 
     // SDC_MotorItf
     bool IsRunning() const {return running_;}
-    bool GetPhysicalPos(Ref *ref, long *setpoint, long *dbgParam) const;
+    bool GetPhysicalPos(Ref *ref, double *setpoint, double *dbgParam) const;
     bool GetLogicalPos(Ref *ref) const;
     bool GetDeviation(Ref *ref) const;
     double GetMaxSpeed() const {return maxSpeed_;}
     double GetSpeed() const {return speed_;}
     bool Start (double speed, SDC_MotionType *mt, Ref *ref);
     bool SetSpeed(double speed, Ref *ref);
-    bool SetNextPos(long upos, long ts, bool reset, Ref *ref);
+    bool SetNextPos(double upos, long ts, bool reset, Ref *ref);
     void Stop();
 
 private:
@@ -92,14 +92,14 @@ private:
     volatile long *encPos_;
 
     bool running_;
-    long upos_;
+    double upos_;
     long ts_;
     double speed_;      // units/ms
     PID pid_;
     double setpoint_, input_, output_;
 
     void DoStop();
-    void DoGetPos(long *upos, long *ts);
+    void DoGetPos(double *upos, long *ts);
 };
 
 #endif /* SDC_MOTOR_H_ */

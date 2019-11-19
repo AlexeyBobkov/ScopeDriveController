@@ -161,7 +161,7 @@ static void StartMotor(byte buf[], int, int)
 
     SDC_MotorItf::Ref ref;
     motor->Start(double(speed)/(24.0*60.0*60000.), &intlk, &ref);     // convert speed -> units/ms
-    printHex2(ref.upos_);
+    printHex2(round(ref.upos_));
     printHex2(ref.ts_);
 }
 
@@ -175,7 +175,7 @@ static void SetMotorSpeed(byte buf[], int, int)
 
     SDC_MotorItf::Ref ref;
     motor->SetSpeed(double(speed)/(24.0*60.0*60000.), &ref);     // convert speed -> units/ms
-    printHex2(ref.upos_);
+    printHex2(round(ref.upos_));
     printHex2(ref.ts_);
 }
 
@@ -189,7 +189,7 @@ static void NextMotorPosition(byte buf[], int, int)
 
     SDC_MotorItf::Ref ref;
     motor->SetNextPos(upos, ts, false, &ref);
-    printHex2(ref.upos_);
+    printHex2(round(ref.upos_));
     printHex2(ref.ts_);
 }
 
@@ -202,13 +202,13 @@ static void StopMotor(byte buf[], int, int)
 static void PollMotor(byte buf[], int, int)
 {
     SDC_MotorItf::Ref ref;
-    long setpoint;
-    long dbg;
+    double setpoint;
+    double dbg;
     byte running = GetMotor(buf[0])->GetPhysicalPos(&ref, &setpoint, &dbg) ? 1 : 0;
-    printHex2(ref.upos_);
+    printHex2(round(ref.upos_));
     printHex2(ref.ts_);
-    printHex2(setpoint);
-    printHex2(dbg);
+    printHex2(round(setpoint));
+    printHex2(round(dbg));
     switch(buf[0])
     {
     default:
@@ -356,13 +356,13 @@ static void LogData()
                 {
                 default: break;
                 case LMODE_MPOS:    pos[i] = *SDC_GetMotorAzmEncoderPositionPtr(); break;
-                case LMODE_MLOG:    motorAZM.GetLogicalPos(&ref); pos[i] = ref.upos_; break;
+                case LMODE_MLOG:    motorAZM.GetLogicalPos(&ref); pos[i] = (long)ref.upos_; break;
                 case LMODE_MSPD:    pos[i] = long(motorAZM.GetSpeed()*MSPEED_SCALE); break;
-                case LMODE_MERR:    motorAZM.GetDeviation(&ref); pos[i] = ref.upos_; break;
+                case LMODE_MERR:    motorAZM.GetDeviation(&ref); pos[i] = (long)ref.upos_; break;
                 case LMODE_APOS:    pos[i] = *SDC_GetAzmEncoderPositionPtr(); break;
-                case LMODE_ALOG:    adapterAZM.GetLogicalPos(&ref); pos[i] = ref.upos_; break;
+                case LMODE_ALOG:    adapterAZM.GetLogicalPos(&ref); pos[i] = (long)ref.upos_; break;
                 case LMODE_ASPD:    pos[i] = long(adapterAZM.GetSpeed()*ASPEED_SCALE); break;
-                case LMODE_AERR:    adapterAZM.GetDeviation(&ref); pos[i] = ref.upos_; break;
+                case LMODE_AERR:    adapterAZM.GetDeviation(&ref); pos[i] = (long)ref.upos_; break;
                 }
             }
             else
@@ -371,13 +371,13 @@ static void LogData()
                 {
                 default: break;
                 case LMODE_MPOS:    pos[i] = *SDC_GetMotorAltEncoderPositionPtr(); break;
-                case LMODE_MLOG:    motorALT.GetLogicalPos(&ref); pos[i] = ref.upos_; break;
+                case LMODE_MLOG:    motorALT.GetLogicalPos(&ref); pos[i] = (long)ref.upos_; break;
                 case LMODE_MSPD:    pos[i] = long(motorALT.GetSpeed()*MSPEED_SCALE); break;
-                case LMODE_MERR:    motorALT.GetDeviation(&ref); pos[i] = ref.upos_; break;
+                case LMODE_MERR:    motorALT.GetDeviation(&ref); pos[i] = (long)ref.upos_; break;
                 case LMODE_APOS:    pos[i] = *SDC_GetAltEncoderPositionPtr(); break;
-                case LMODE_ALOG:    adapterALT.GetLogicalPos(&ref); pos[i] = ref.upos_; break;
+                case LMODE_ALOG:    adapterALT.GetLogicalPos(&ref); pos[i] = (long)ref.upos_; break;
                 case LMODE_ASPD:    pos[i] = long(adapterALT.GetSpeed()*ASPEED_SCALE); break;
-                case LMODE_AERR:    adapterALT.GetDeviation(&ref); pos[i] = ref.upos_; break;
+                case LMODE_AERR:    adapterALT.GetDeviation(&ref); pos[i] = (long)ref.upos_; break;
                 }
             }
             if(++i >= 2)

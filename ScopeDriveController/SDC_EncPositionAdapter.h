@@ -27,6 +27,7 @@ public:
 
     enum SpeedMode
     {
+        STOP,
         REGULAR,
         FAST2,
         FAST3
@@ -43,20 +44,20 @@ public:
 
     // SDC_MotorItf
     bool IsRunning() const;
-    bool GetPhysicalPos(Ref *ref, long *setpoint, long *dbgParam) const;
+    bool GetPhysicalPos(Ref *ref, double *setpoint, double *dbgParam) const;
     bool GetLogicalPos(Ref *ref) const;
     bool GetDeviation(Ref *ref) const;
     double GetMaxSpeed() const {return motor_->GetMaxSpeed() / options_.scopeToMotor_;}
     double GetSpeed() const {return speed_;}
     bool Start (double speed, SDC_MotionType *mt, Ref *ref);
     bool SetSpeed(double speed, Ref *ref);
-    bool SetNextPos(long upos, long ts, bool reset, Ref *ref);
+    bool SetNextPos(double upos, long ts, bool reset, Ref *ref);
     void Stop();
 
     // MotionType
     bool CanMove(const SDC_MotorItf*) const                 {return mt_ ? mt_->CanMove(this) : true;}
     void MotorStarted(SDC_MotorItf*)                        {if(mt_) mt_->MotorStarted(this); running_ = true;}
-    void MotorStopped(SDC_MotorItf*, bool byStopCommand)    {if(mt_) mt_->MotorStopped(this, byStopCommand); running_ = false;}
+    void MotorStopped(SDC_MotorItf*, bool byStopCommand)    {if(mt_) mt_->MotorStopped(this, byStopCommand); DoStop();}
 
 private:
     Options options_;
@@ -67,7 +68,7 @@ private:
     double maxSpeed_;
     bool running_;
     SDC_MotionType *mt_;
-    long refScopePos_;
+    double refScopePos_;
     long ts_;
     double speed_;      // units/ms
     double setpoint_, input_, output_;
@@ -80,6 +81,7 @@ private:
     void UpdateSpeed(double speed);
     void SetMaxOutputLimits();
     void AdjustPID();
+    void DoStop();
 };
 
 

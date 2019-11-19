@@ -37,10 +37,11 @@ bool SDC_Motor::Run()
         return true;
     }
 
-    long uposCurr, tsCurr;
+    double uposCurr;
+    long tsCurr;
     DoGetPos(&uposCurr, &tsCurr);
 
-    setpoint_ = round(upos_ + speed_*(tsCurr - ts_));
+    setpoint_ = upos_ + speed_*(tsCurr - ts_);
     input_ = uposCurr;
     pid_.Compute();
 
@@ -66,12 +67,12 @@ bool SDC_Motor::Run()
     return true;
 }
 
-bool SDC_Motor::GetPhysicalPos(Ref *ref, long *setpoint, long *dbgParam) const
+bool SDC_Motor::GetPhysicalPos(Ref *ref, double *setpoint, double *dbgParam) const
 {
     if(ref)
         *ref = Ref(*encPos_, millis());
     if(setpoint)
-        *setpoint = (long)setpoint_;
+        *setpoint = setpoint_;
     if(dbgParam)
         *dbgParam = output_;
     return running_;
@@ -82,7 +83,7 @@ bool SDC_Motor::GetLogicalPos(Ref *ref) const
     if(ref)
     {
         long tsCurr = millis();
-        *ref = Ref(running_ ? round(upos_ + speed_*(tsCurr - ts_)) : *encPos_, tsCurr);
+        *ref = Ref(running_ ? (upos_ + speed_*(tsCurr - ts_)) : *encPos_, tsCurr);
     }
     return running_;
 }
@@ -92,7 +93,7 @@ bool SDC_Motor::GetDeviation(Ref *ref) const
     if(ref)
     {
         long tsCurr = millis();
-        *ref = Ref(running_ ? round(upos_ + speed_*(tsCurr - ts_) - *encPos_) : 0, tsCurr);
+        *ref = Ref(running_ ? (upos_ + speed_*(tsCurr - ts_) - *encPos_) : 0, tsCurr);
     }
     return running_;
 }
@@ -128,10 +129,11 @@ bool SDC_Motor::SetSpeed(double speed, Ref *ref)
 
     if(speed != speed_)
     {
-        long uposCurr, tsCurr;
+        double uposCurr;
+        long tsCurr;
         DoGetPos(&uposCurr, &tsCurr);
 
-        upos_ += round(speed_*(tsCurr - ts_)); // To keep the PID state, we must use current LOGICAL position as the next reference point.
+        upos_ += speed_*(tsCurr - ts_); // To keep the PID state, we must use current LOGICAL position as the next reference point.
         ts_ = tsCurr;
 
         speed_ = speed;
@@ -141,19 +143,20 @@ bool SDC_Motor::SetSpeed(double speed, Ref *ref)
     return true;
 }
 
-bool SDC_Motor::SetNextPos(long upos, long ts, bool reset, Ref *ref)
+bool SDC_Motor::SetNextPos(double upos, long ts, bool reset, Ref *ref)
 {
     if(!running_)
         return false;
 
-    long uposCurr, tsCurr;
+    double uposCurr;
+    long tsCurr;
     DoGetPos(&uposCurr, &tsCurr);
     if((ts > tsCurr ? ts - tsCurr : tsCurr - ts) > 10)   // ignore if timestamps are closer than 10 ms, due to bad accuracy
     {
-        upos_ += round(speed_*(tsCurr - ts_)); // To keep the PID state, we must use current LOGICAL position as the next reference point.
+        upos_ += speed_*(tsCurr - ts_); // To keep the PID state, we must use current LOGICAL position as the next reference point.
         ts_ = tsCurr;
 
-        speed_ = double(upos - uposCurr)/double(ts - tsCurr);
+        speed_ = (upos - uposCurr)/(ts - tsCurr);
         if(ref)
             *ref = Ref(uposCurr, tsCurr);
         return true;
@@ -179,7 +182,7 @@ void SDC_Motor::DoStop()
     analogWrite(speedPin_, 0);
 }
 
-void SDC_Motor::DoGetPos(long *upos, long *ts)
+void SDC_Motor::DoGetPos(double *upos, long *ts)
 {
     *ts = millis();
     *upos = *encPos_;
