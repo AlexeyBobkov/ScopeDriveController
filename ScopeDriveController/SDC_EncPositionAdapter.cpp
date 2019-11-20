@@ -71,15 +71,9 @@ void SDC_MotorAdapter::UpdateSpeed(double speed)
     }
 }
 
-void SDC_MotorAdapter::AdjustPID()
+void SDC_MotorAdapter::AdjustPID(double diff, long ts)
 {
-    long ts = millis();
     lastAdjustPID_ = ts;
-
-    double diff = refScopePos_ + speed_*(ts - ts_) - *scopeEncPos_;
-    if(diff < 0)
-        diff = -diff;
-
     if(diff > diff3_)
     {
         // very fast movement
@@ -136,7 +130,7 @@ bool SDC_MotorAdapter::Run()
         input_ = *scopeEncPos_;
 
         if(speedMode_ != REGULAR || ts - lastAdjustPID_ > ADJUST_PID_TMO)
-            AdjustPID();
+            AdjustPID(setpoint_ - input_, ts);
 
         if(pid_.Compute())
         {
@@ -208,7 +202,7 @@ bool SDC_MotorAdapter::Start (double speed, SDC_MotionType *mt, Ref *ref)
         *ref = Ref(refScopePos_, ts_);
     UpdateSpeed(speed);
     pid_.SetMode(AUTOMATIC);
-    AdjustPID();
+    AdjustPID(0, ts_);
     return true;
 }
 

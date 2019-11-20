@@ -184,7 +184,7 @@ static void NextMotorPosition(byte buf[], int, int)
     byte *p = buf;
     SDC_MotorItf *motor = GetMotor(*p++);
 
-    long upos = long((uint32_t(p[3]) << 24) + (uint32_t(p[2]) << 16) + (uint32_t(p[1]) << 8) + uint32_t(p[0]));
+    double upos = *((double*)p);
     long ts   = long((uint32_t(p[7]) << 24) + (uint32_t(p[6]) << 16) + (uint32_t(p[5]) << 8) + uint32_t(p[4]));
 
     SDC_MotorItf::Ref ref;

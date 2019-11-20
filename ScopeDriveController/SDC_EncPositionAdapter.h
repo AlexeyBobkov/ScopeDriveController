@@ -80,7 +80,7 @@ private:
 
     void UpdateSpeed(double speed);
     void SetMaxOutputLimits();
-    void AdjustPID();
+    void AdjustPID(double diff, long ts);
     void DoStop();
 };
 
