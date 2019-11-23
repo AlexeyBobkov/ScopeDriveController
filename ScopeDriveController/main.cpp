@@ -66,22 +66,18 @@ SDC_Motor motorALT(SDC_Motor::Options(30*M_RESOLUTION/60000, 1.0, 0.8), DIR1_OPI
 SDC_Motor motorAZM(SDC_Motor::Options(60*M_RESOLUTION/60000, 0.5, 0.4), DIR2_OPIN, PWMB_OPIN, SDC_GetMotorAzmEncoderPositionPtr());   // 60rpm
 
 SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(223.3,    // ratio
-                                                      0.04,     // Kp factor (only factor; Ki is calculated)
-                                                      1.0,      // Ki factor (only factor; Kp is calculated)
+                                                      0.6,      // speed deviation factor
                                                       0.4,      // Kp for fast movement
                                                       0.7,      // Kp for very fast movement
-                                                      3.0,      // diff 1 (deviation allowing backward movement and no speed restrictions)
                                                       6.0,      // diff 2 (deviation allowing fast movement)
                                                       15.0),    // diff 3 (deviation allowing very fast movement)
                             SDC_GetAltEncoderResolution(),
                             SDC_GetAltEncoderPositionPtr(),
                             &motorALT);
 SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(177.1,    // ratio
-                                                      0.04,     // Kp factor
-                                                      1.0,      // Ki factor
+                                                      0.6,      // speed deviation factor
                                                       0.4,      // Kp for fast movement factor
                                                       0.7,      // Kp for very fast movement
-                                                      3.0,      // diff 1
                                                       6.0,      // diff 2
                                                       15.0),    // diff 3
                             SDC_GetAzmEncoderResolution(),
@@ -245,7 +241,8 @@ static void PollMotor(byte buf[], int, int)
 #define LMODE_ALOG      0x20
 #define LMODE_ASPD      0x40
 #define LMODE_AERR      0x80
-#define LMODE_LAST      (LMODE_AERR<<1)
+#define LMODE_DEBUG     0x100
+#define LMODE_LAST      (LMODE_DEBUG<<1)
 
 #define LMODE_OFF           0
 
@@ -337,6 +334,11 @@ static void PositionLogging(byte buf[], int, int)
     }
 }
 
+static long GetDebugModeValue()
+{
+    return 0;
+}
+
 static void LogData()
 {
     long ts;
@@ -363,6 +365,7 @@ static void LogData()
                 case LMODE_ALOG:    adapterAZM.GetLogicalPos(&ref); pos[i] = (long)ref.upos_; break;
                 case LMODE_ASPD:    pos[i] = long(adapterAZM.GetSpeed()*ASPEED_SCALE); break;
                 case LMODE_AERR:    adapterAZM.GetDeviation(&ref); pos[i] = (long)ref.upos_; break;
+                case LMODE_DEBUG:   pos[i] = GetDebugModeValue(); break;
                 }
             }
             else
@@ -378,6 +381,7 @@ static void LogData()
                 case LMODE_ALOG:    adapterALT.GetLogicalPos(&ref); pos[i] = (long)ref.upos_; break;
                 case LMODE_ASPD:    pos[i] = long(adapterALT.GetSpeed()*ASPEED_SCALE); break;
                 case LMODE_AERR:    adapterALT.GetDeviation(&ref); pos[i] = (long)ref.upos_; break;
+                case LMODE_DEBUG:   pos[i] = GetDebugModeValue(); break;
                 }
             }
             if(++i >= 2)
