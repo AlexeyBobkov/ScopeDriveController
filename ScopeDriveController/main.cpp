@@ -65,8 +65,9 @@ IntlkMotionType intlk;
 SDC_Motor motorALT(SDC_Motor::Options(30*M_RESOLUTION/60000, 1.0, 0.8), DIR1_OPIN, PWMA_OPIN, SDC_GetMotorAltEncoderPositionPtr());   // 30rpm
 SDC_Motor motorAZM(SDC_Motor::Options(60*M_RESOLUTION/60000, 0.5, 0.4), DIR2_OPIN, PWMB_OPIN, SDC_GetMotorAzmEncoderPositionPtr());   // 60rpm
 
-SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(223.3,    // ratio
+SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(218.9,    // ratio
                                                       0.6,      // speed deviation factor
+                                                      1.0,      // Ki for regular movement
                                                       0.4,      // Kp for fast movement
                                                       0.7,      // Kp for very fast movement
                                                       5.0,      // diff 2 (deviation allowing fast movement)
@@ -76,6 +77,7 @@ SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(223.3,    // ratio
                             &motorALT);
 SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(177.1,    // ratio
                                                       0.6,      // speed deviation factor
+                                                      1.0,      // Ki for regular movement
                                                       0.4,      // Kp for fast movement factor
                                                       0.7,      // Kp for very fast movement
                                                       5.0,      // diff 2
@@ -218,6 +220,21 @@ static void PollMotor(byte buf[], int, int)
         break;
     }
     Serial.write(&running, 1);
+}
+
+static void SetDevSpeed(byte buf[], int, int)
+{
+    byte *p = buf;
+    SDC_MotorAdapter *adapter = NULL;
+    switch(*p++)
+    {
+    default: break;
+    case A_ALT: case M_ALT: adapter = &adapterALT; break;
+    case A_AZM: case M_AZM: adapter = &adapterAZM; break;
+    }
+    if(!adapter || !adapter->SetDevSpeedAndSetTunings(*(double*)p))
+        MakeSound(300);
+    Serial.print("r");
 }
 
 
@@ -533,6 +550,10 @@ static void ProcessSerialCommand(char inchar)
 
     case 'P':   // poll
         SetSerialBuf(1, PollMotor);
+        break;
+
+    case 'D':   // set deviation speed factor and recalculate PID tunings
+        SetSerialBuf(5, SetDevSpeed);
         break;
 
 #ifdef LOGGING_ON

@@ -11,29 +11,25 @@
 #include "SDC_Configuration.h"
 #include "SDC_EncPositionAdapter.h"
 
-const long ADJUST_PID_TMO = 1000;
+#define ADJUST_PID_TMO      1000
+#define PID_POLL_PERIOD     300
+#define SPEED_SMOOTH        0.3
 
 SDC_MotorAdapter::SDC_MotorAdapter(const Options &options, long encRes, volatile long *scopeEncPos, SDC_MotorItf *motor)
-    :   options_(options), normalSpeed_(encRes/(24.0*60.0*60.0*1000.0)), scopeEncPos_(scopeEncPos), motor_(motor),
+    :   options_(options), scopeEncPos_(scopeEncPos), normalSpeed_(encRes/(24.0*60.0*60.0*1000.0)), motor_(motor),
         maxSpeed_(motor_->GetMaxSpeed() / options_.scopeToMotor_), running_(false), mt_(NULL), output_(0), lastAdjustPID_(0), speedMode_(STOP),
-        diff2_(0), diff3_(0), pid_(&input_, &output_, &setpoint_, 1.0, 0.0, 0.0, DIRECT)
+        pid_(&input_, &output_, &setpoint_, 1.0, 0.0, 0.0, DIRECT)
 {
-    double A = 1000.0/options_.scopeToMotor_;
+    A_ = 1000.0/options_.scopeToMotor_;     // coefficient A in equation d(Pos)/dt = A * Vmotor, i.e., A = 1/scopeToMotor  (*1000 because VMotor is calculated in units/ms, not in units/s)
 
-    Kp_ = options.deviationSpeedFactor_ * normalSpeed_ * options_.scopeToMotor_;
-    if(Kp_ > 1/A)
-        Kp_ = 1/A;
-    options_.KpFast2_ *= 1/A;
-    options_.KpFast3_ *= 1/A;
-    Ki_ = (Kp_ * Kp_) * A / 4;
+    SetDevSpeedAndSetTunings(options_.deviationSpeedFactor_);
+    options_.KpFast2_ *= 1/A_;
+    options_.KpFast3_ *= 1/A_;
 
-    diff2_ = options_.diff2_;
-    diff3_ = options_.diff3_;
-
-    pid_.SetTunings(Kp_, Ki_, 0);
-    pid_.SetSampleTime(300);
-    SetMaxOutputLimits();
+    pid_.SetSampleTime(PID_POLL_PERIOD);
+    pid_.SetOutputLimits(-maxSpeed_*options_.scopeToMotor_, maxSpeed_*options_.scopeToMotor_);
 }
+
 
 // call once in setup()
 void SDC_MotorAdapter::Setup()
@@ -41,73 +37,73 @@ void SDC_MotorAdapter::Setup()
     lastAdjustPID_ = millis() - ADJUST_PID_TMO;
 }
 
-void SDC_MotorAdapter::SetMaxOutputLimits()
+bool SDC_MotorAdapter::SetDevSpeedAndSetTunings(double f)
 {
-    pid_.SetOutputLimits(-maxSpeed_*options_.scopeToMotor_, maxSpeed_*options_.scopeToMotor_);
+    if(running_)
+        return false;
+
+    Kp_ = f * normalSpeed_ * options_.scopeToMotor_;
+    if(Kp_ > 1/A_)
+        Kp_ = 1/A_;
+    Ki_ = options_.Ki_ * (Kp_ * Kp_) * A_ / 4;  // optimal Ki = Kp^2*A/4
+    pid_.SetTunings(Kp_, Ki_, 0);
+    return true;
 }
 
 void SDC_MotorAdapter::UpdateSpeed(double speed)
 {
     if(speed > maxSpeed_)
-        speed = maxSpeed_;
+        speed_ = maxSpeed_;
     else if(speed < -maxSpeed_)
-        speed = -maxSpeed_;
-    speed_ = speed;
+        speed_ = -maxSpeed_;
+    else
+        speed_ = speed;
+}
+
+void SDC_MotorAdapter::ReInitializePID(SpeedMode newMode, double speed, double Kp, double Ki)
+{
+    if(speedMode_ != newMode)
+    {
+        speedMode_ = newMode;
+        pid_.SetMode(MANUAL);
+        output_ = speed;    // set PID integral sum to predefined value
+        pid_.SetMode(AUTOMATIC);
+        pid_.SetTunings(Kp, Ki, 0);
+    }
 }
 
 void SDC_MotorAdapter::AdjustPID(double diff, long ts)
 {
     lastAdjustPID_ = ts;
 
-    double diff2 = diff2_, diff3 = diff3_;
+    // mode switch hysteresis
+    double diff2, diff3;
     switch(speedMode_)
     {
-    case REGULAR:   diff2 += 1; diff3 += 1; break;
-    case FAST2:     diff3 += 1; break;
-    default:        break;
+    case REGULAR:
+        diff2 = options_.diff2_ + 1;
+        diff3 = options_.diff3_ + 1;
+        break;
+
+    case FAST2:
+        diff2 = options_.diff2_;
+        diff3 = options_.diff3_ + 1;
+        break;
+
+    default:
+        diff2 = options_.diff2_;
+        diff3 = options_.diff3_;
+        break;
     }
 
     if(diff < 0)
         diff = -diff;
     if(diff > diff3)
-    {
-        // very fast movement
-        if(speedMode_ != FAST3)
-        {
-            speedMode_ = FAST3;
-
-            pid_.SetMode(MANUAL);
-            output_ = 0;
-            pid_.SetMode(AUTOMATIC);
-
-            pid_.SetTunings(options_.KpFast3_, 0, 0);
-        }
-    }
+        ReInitializePID(FAST3, 0, options_.KpFast3_, 0);                        // very fast movement
     else if(diff > diff2)
-    {
-        // fast movement
-        if(speedMode_ != FAST2)
-        {
-            speedMode_ = FAST2;
-
-            pid_.SetMode(MANUAL);
-            output_ = 0;
-            pid_.SetMode(AUTOMATIC);
-
-            pid_.SetTunings(options_.KpFast2_, 0, 0);
-        }
-    }
-    else if(speedMode_ != REGULAR)
-    {
-        // regular use case
-        speedMode_ = REGULAR;
-
-        pid_.SetMode(MANUAL);
-        output_ = speed_ * options_.scopeToMotor_;
-        pid_.SetMode(AUTOMATIC);
-
-        pid_.SetTunings(Kp_, Ki_, 0);
-    }
+        ReInitializePID(FAST2, 0, options_.KpFast2_, 0);                        // fast movement
+    else
+        ReInitializePID(REGULAR, speed_ * options_.scopeToMotor_, Kp_, Ki_);    // regular speed
 }
 
 // call periodically in loop()
@@ -130,7 +126,7 @@ bool SDC_MotorAdapter::Run()
             else
             {
                 double curr = motor_->GetSpeed();
-                motor_->SetSpeed(curr + (output_ - curr)*0.3);
+                motor_->SetSpeed(curr + (output_ - curr)*SPEED_SMOOTH);
             }
         }
     }
@@ -231,8 +227,9 @@ bool SDC_MotorAdapter::SetNextPos(double upos, long ts, bool reset, Ref *ref)
         UpdateSpeed((upos - refScopePos_)/double(ts - ts_));
         return true;
     }
-    else if(ref)
-        *ref = Ref(*scopeEncPos_, tsCurr);
+
+    if(ref)
+        *ref = Ref(refScopePos_, ts_);
     return false;
 }
 
