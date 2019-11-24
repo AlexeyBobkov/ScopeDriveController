@@ -69,7 +69,7 @@ SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(223.3,    // ratio
                                                       0.6,      // speed deviation factor
                                                       0.4,      // Kp for fast movement
                                                       0.7,      // Kp for very fast movement
-                                                      6.0,      // diff 2 (deviation allowing fast movement)
+                                                      5.0,      // diff 2 (deviation allowing fast movement)
                                                       15.0),    // diff 3 (deviation allowing very fast movement)
                             SDC_GetAltEncoderResolution(),
                             SDC_GetAltEncoderPositionPtr(),
@@ -78,7 +78,7 @@ SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(177.1,    // ratio
                                                       0.6,      // speed deviation factor
                                                       0.4,      // Kp for fast movement factor
                                                       0.7,      // Kp for very fast movement
-                                                      6.0,      // diff 2
+                                                      5.0,      // diff 2
                                                       15.0),    // diff 3
                             SDC_GetAzmEncoderResolution(),
                             SDC_GetAzmEncoderPositionPtr(),

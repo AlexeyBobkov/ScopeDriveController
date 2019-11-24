@@ -58,9 +58,18 @@ void SDC_MotorAdapter::UpdateSpeed(double speed)
 void SDC_MotorAdapter::AdjustPID(double diff, long ts)
 {
     lastAdjustPID_ = ts;
+
+    double diff2 = diff2_, diff3 = diff3_;
+    switch(speedMode_)
+    {
+    case REGULAR:   diff2 += 1; diff3 += 1; break;
+    case FAST2:     diff3 += 1; break;
+    default:        break;
+    }
+
     if(diff < 0)
         diff = -diff;
-    if(diff > diff3_)
+    if(diff > diff3)
     {
         // very fast movement
         if(speedMode_ != FAST3)
@@ -74,7 +83,7 @@ void SDC_MotorAdapter::AdjustPID(double diff, long ts)
             pid_.SetTunings(options_.KpFast3_, 0, 0);
         }
     }
-    else if(diff > diff2_)
+    else if(diff > diff2)
     {
         // fast movement
         if(speedMode_ != FAST2)
@@ -121,7 +130,7 @@ bool SDC_MotorAdapter::Run()
             else
             {
                 double curr = motor_->GetSpeed();
-                motor_->SetSpeed(curr + (output_ - curr)*0.15);
+                motor_->SetSpeed(curr + (output_ - curr)*0.3);
             }
         }
     }
