@@ -43,27 +43,27 @@ bool SDC_Motor::Run()
 
     setpoint_ = upos_ + speed_*(tsCurr - ts_);
     input_ = uposCurr;
-    pid_.Compute();
-
-    int sp;
-    uint8_t direction;
-    if(output_ > 0)
+    if(pid_.Compute())
     {
-        sp = int(output_ + 0.5);
-        direction = HIGH;
+        int sp;
+        uint8_t direction;
+        if(output_ > 0)
+        {
+            sp = int(output_ + 0.5);
+            direction = HIGH;
+        }
+        else
+        {
+            sp = int(-output_ + 0.5);
+            direction = LOW;
+        }
+        if(sp > 255)
+            sp = 255;
+        else if (sp < 0)
+            sp = 0;
+        digitalWrite(dirPin_, direction);
+        analogWrite(speedPin_, sp);
     }
-    else
-    {
-        sp = int(-output_ + 0.5);
-        direction = LOW;
-    }
-    if(sp > 255)
-        sp = 255;
-    else if (sp < 0)
-        sp = 0;
-    digitalWrite(dirPin_, direction);
-    analogWrite(speedPin_, sp);
-
     return true;
 }
 
