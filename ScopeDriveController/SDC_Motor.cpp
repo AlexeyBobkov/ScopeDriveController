@@ -14,7 +14,7 @@ SDC_Motor::SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, v
         pid_(&input_, &output_, &setpoint_, options.Kp_, options.Ki_, 0.0, P_ON_E, DIRECT)
 {
     pid_.SetOutputLimits(-255,255);
-    pid_.SetSampleTime(100);
+    pid_.SetSampleTime(20);
 }
 
 void SDC_Motor::Setup()
@@ -37,32 +37,22 @@ bool SDC_Motor::Run()
         return true;
     }
 
-    double uposCurr;
-    long tsCurr;
-    DoGetPos(&uposCurr, &tsCurr);
-
-    setpoint_ = upos_ + speed_*(tsCurr - ts_);
-    input_ = uposCurr;
+    setpoint_ = upos_ + speed_*(millis() - ts_);
+    input_ = *encPos_;
     if(pid_.Compute())
     {
         int sp;
-        uint8_t direction;
         if(output_ > 0)
         {
             sp = int(output_ + 0.5);
-            direction = HIGH;
+            digitalWrite(dirPin_, HIGH);
         }
         else
         {
             sp = int(-output_ + 0.5);
-            direction = LOW;
+            digitalWrite(dirPin_, LOW);
         }
-        if(sp > 255)
-            sp = 255;
-        else if (sp < 0)
-            sp = 0;
-        digitalWrite(dirPin_, direction);
-        analogWrite(speedPin_, sp);
+        analogWrite(speedPin_, sp > 255 ? 255 : sp);
     }
     return true;
 }
