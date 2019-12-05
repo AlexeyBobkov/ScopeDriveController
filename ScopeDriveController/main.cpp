@@ -6,6 +6,7 @@
  */ 
 
 #include <Arduino.h>
+#include <limits.h>
 
 #define LOGGING_ON
 
@@ -424,6 +425,35 @@ static void LogData()
 ///////////////////////////////////////////////////////////////////////////////////////
 
 
+#ifdef TEST_SLOW_PWM
+static void TestSlowPWM(byte buf[], int, int)
+{
+    byte *p = buf;
+    SDC_Motor *motor = NULL;
+    switch(*p++)
+    {
+    default: break;
+    case A_ALT: case M_ALT: motor = &motorALT; break;
+    case A_AZM: case M_AZM: motor = &motorAZM; break;
+    }
+    int high    = int((uint16_t(p[1]) << 8) + uint16_t(p[0])),
+        period  = int((uint16_t(p[3]) << 8) + uint16_t(p[2])),
+        low;
+    if(period >= 0)
+        low = 0;
+    else
+    {
+        low = high;
+        period = INT_MAX;
+    }
+    SDC_MotorItf::Ref ref;
+    motor->StartSlowPWM(low, high, period, &intlk, &ref);
+    printHex2(round(ref.upos_));
+    printHex2(ref.ts_);
+}
+#endif
+
+
 ///////////////////////////////////////////////////////////////////////////////////////
 #define STATE_ALT_RUNNING   1
 #define STATE_AZM_RUNNING   2
@@ -570,6 +600,12 @@ static void ProcessSerialCommand(char inchar)
             Serial.write(GetState());
         }
         break;
+
+#ifdef TEST_SLOW_PWM
+    case 'W':   // slow PWM
+        SetSerialBuf(5, TestSlowPWM);
+        break;
+#endif
 
     default:
         break;

@@ -9,6 +9,8 @@
 #ifndef SDC_MOTOR_H_
 #define SDC_MOTOR_H_
 
+#define TEST_SLOW_PWM
+
 #include <PID_v1.h>
 
 // motion law
@@ -85,6 +87,10 @@ public:
     bool SetNextPos(double upos, long ts, bool reset, Ref *ref);
     void Stop();
 
+#ifdef TEST_SLOW_PWM
+    bool StartSlowPWM(int low, int high, int period, SDC_MotionType *mt, Ref *ref = NULL);
+#endif
+
 private:
     double maxSpeed_;  // units/ms
     uint8_t dirPin_, speedPin_; // pins
@@ -96,6 +102,12 @@ private:
     long ts_;
     double speed_;      // units/ms
     PID pid_;
+
+#ifdef TEST_SLOW_PWM
+    int low_, high_, period_;
+    bool useHigh_;
+#endif
+    
     double setpoint_, input_, output_;
 
     void DoStop();
