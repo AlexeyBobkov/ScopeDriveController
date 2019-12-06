@@ -88,7 +88,7 @@ public:
     void Stop();
 
 #ifdef TEST_SLOW_PWM
-    bool StartSlowPWM(int low, int high, int period, SDC_MotionType *mt, Ref *ref = NULL);
+    bool StartSlowPWM(int val, long period, double dutyCycle, SDC_MotionType *mt, Ref *ref = NULL);
 #endif
 
 private:
@@ -104,8 +104,18 @@ private:
     PID pid_;
 
 #ifdef TEST_SLOW_PWM
-    int low_, high_, period_;
-    bool useHigh_;
+    enum PWM_STATE
+    {
+        PWM_CONST,
+        PWM_LOW,
+        PWM_HIGH
+    };
+
+    int val_;
+    long hiPeriod_, loPeriod_;
+    PWM_STATE pwmState_;
+
+    void SetVal();
 #endif
     
     double setpoint_, input_, output_;

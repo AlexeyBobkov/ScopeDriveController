@@ -436,18 +436,31 @@ static void TestSlowPWM(byte buf[], int, int)
     case A_ALT: case M_ALT: motor = &motorALT; break;
     case A_AZM: case M_AZM: motor = &motorAZM; break;
     }
-    int high    = int((uint16_t(p[1]) << 8) + uint16_t(p[0])),
-        period  = int((uint16_t(p[3]) << 8) + uint16_t(p[2])),
-        low;
-    if(period >= 0)
-        low = 0;
+    int val     = int((uint16_t(p[1]) << 8) + uint16_t(p[0]));
+    long period = int((uint16_t(p[3]) << 8) + uint16_t(p[2]));
+
+    if(val > 255)
+        val = 255;
+   else if(val < -255)
+        val = -255;
+
+    double dutyCycle;
+    if(period <= 0)
+    {
+        period = LONG_MAX;
+        dutyCycle = 1;
+    }
     else
     {
-        low = high;
-        period = INT_MAX;
+        dutyCycle = *((double*)(p+4));
+        if(dutyCycle < 0)
+            dutyCycle = 0;
+        else if(dutyCycle > 1)
+            dutyCycle = 1;
     }
+
     SDC_MotorItf::Ref ref;
-    motor->StartSlowPWM(low, high, period, &intlk, &ref);
+    motor->StartSlowPWM(val, period, dutyCycle, &intlk, &ref);
     printHex2(round(ref.upos_));
     printHex2(ref.ts_);
 }
@@ -603,7 +616,7 @@ static void ProcessSerialCommand(char inchar)
 
 #ifdef TEST_SLOW_PWM
     case 'W':   // slow PWM
-        SetSerialBuf(5, TestSlowPWM);
+        SetSerialBuf(9, TestSlowPWM);
         break;
 #endif
 
