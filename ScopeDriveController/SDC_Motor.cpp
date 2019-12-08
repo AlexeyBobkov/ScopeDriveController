@@ -10,15 +10,31 @@
 
 #include "SDC_Motor.h"
 
+//#define GET_TIME            millis()
+//#define CONV_TIME(x)        (x)
+//#define UCONV_TIME(x)       (x)
+//#define CONV_TIME_VAR(x)
+
+#define GET_TIME            micros()
+#define CONV_TIME(x)        ((x) * 1000)
+#define UCONV_TIME(x)       ((x) / 1000)
+#define CONV_TIME_VAR(x)    x *= 1000;
+
+
 SDC_Motor::SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, volatile long *encPos)
-    :   maxSpeed_(options.maxSpeed_), dirPin_(dirPin), speedPin_(speedPin), mt_(NULL), encPos_(encPos), running_(false),
+    :   maxSpeed_(options.maxSpeed_), dirPin_(dirPin), speedPin_(speedPin), encPos_(encPos),
+        loProfile_(options.loProfile_), hiProfile_(options.hiProfile_), mt_(NULL), running_(false),
         pid_(&input_, &output_, &setpoint_, options.Kp_, options.Ki_, 0.0, P_ON_E, DIRECT)
 #ifdef TEST_SLOW_PWM
-        , val_(0)
+        , testPWMVal_(0)
 #endif
 {
+    magRatio_ = double(hiProfile_.magnitude_)/double(loProfile_.magnitude_);
+    periodRatio_ = double(hiProfile_.period_)/double(loProfile_.period_);
+    valDiff_ = hiProfile_.value_ - loProfile_.value_;
+
     pid_.SetOutputLimits(-255,255);
-    pid_.SetSampleTime(20);
+    pid_.SetSampleTime(100);
 }
 
 void SDC_Motor::Setup()
@@ -29,33 +45,30 @@ void SDC_Motor::Setup()
     analogWrite(speedPin_, 0);
 }
 
-#ifdef TEST_SLOW_PWM
-
-//#define GET_TIME        millis()
-//#define CONV_TIME(x)
-
-#define GET_TIME        micros()
-#define CONV_TIME(x)    x *= 1000;
-
-void SDC_Motor::SetVal()
+void SDC_Motor::SetVal(int val)
 {
-    if(val_ > 0)
+    if(val > 0)
     {
         digitalWrite(dirPin_, HIGH);
-        analogWrite(speedPin_, val_);
+        analogWrite(speedPin_, val);
     }
     else
     {
         digitalWrite(dirPin_, LOW);
-        analogWrite(speedPin_, -val_);
+        analogWrite(speedPin_, -val);
     }
 }
-#endif
+
+void SDC_Motor::SetVal(uint8_t val, bool positive)
+{
+    digitalWrite(dirPin_, positive ? HIGH : LOW);
+    analogWrite(speedPin_, val);
+}
 
 bool SDC_Motor::Run()
 {
 #ifdef TEST_SLOW_PWM
-    if(val_ != 0)
+    if(testPWMVal_ != 0)
     {
         if(mt_ && !mt_->CanMove(this))
         {
@@ -71,21 +84,21 @@ bool SDC_Motor::Run()
         default:
         case PWM_CONST: break;  // already set
         case PWM_HIGH:
-            if((unsigned long)((now = GET_TIME) - ts_ - hiPeriod_) < ULONG_MAX/2)
+            if((unsigned long)((now = GET_TIME) - tsPWMStart_ - hiPeriod_) < ULONG_MAX/2)
             {
                 // switch to low
                 analogWrite(speedPin_, 0);
                 pwmState_ = PWM_LOW;
-                ts_ = now;
+                tsPWMStart_ = now;
             }
             break;
         case PWM_LOW:
-            if((unsigned long)((now = GET_TIME) - ts_ - loPeriod_) < ULONG_MAX/2)
+            if((unsigned long)((now = GET_TIME) - tsPWMStart_ - loPeriod_) < ULONG_MAX/2)
             {
                 // switch to high
-                SetVal();
+                SetVal(testPWMVal_);
                 pwmState_ = PWM_HIGH;
-                ts_ = now;
+                tsPWMStart_ = now;
             }
             break;
         }
@@ -107,6 +120,43 @@ bool SDC_Motor::Run()
     input_ = *encPos_;
     if(pid_.Compute())
     {
+#ifdef USE_SLOW_PWM
+        int sp = round(output_);
+        int absSp = (sp >= 0) ? sp : -sp;
+        if(absSp >= hiProfile_.magnitude_)
+        {
+            pwmState_ = PWM_CONST;
+            SetVal(sp);
+            return true;
+        }
+        else if(absSp < loProfile_.value_)
+        {
+            pwmState_ = PWM_CONST;
+            analogWrite(speedPin_, 0);
+            return true;
+        }
+
+        double period;
+        uint8_t magnitude;
+        if(absSp >= hiProfile_.value_)
+        {
+            magnitude = hiProfile_.magnitude_;
+            period = hiProfile_.period_;
+        }
+        else
+        {
+            double power = (absSp - loProfile_.value_)/valDiff_;
+            magnitude   = loProfile_.magnitude_*pow(magRatio_, power) + 0.5;
+            period      = loProfile_.period_*pow(periodRatio_, power);
+        }
+
+        // set to high
+        hiPeriod_ = (CONV_TIME(period) * absSp / magnitude) + 0.5;
+        tsPWMStart_ = GET_TIME;
+        pwmState_ = PWM_HIGH;
+        SetVal(magnitude, sp > 0);
+        pid_.SetSampleTime(period + 0.5);
+#else
         int sp;
         if(output_ > 0)
         {
@@ -119,7 +169,16 @@ bool SDC_Motor::Run()
             digitalWrite(dirPin_, LOW);
         }
         analogWrite(speedPin_, sp > 255 ? 255 : sp);
+#endif
     }
+#ifdef USE_SLOW_PWM
+    else if(pwmState_ == PWM_HIGH && (unsigned long)(GET_TIME - tsPWMStart_ - hiPeriod_) < ULONG_MAX/2)
+    {
+        // switch to low
+        pwmState_ = PWM_LOW;
+        analogWrite(speedPin_, 0);
+    }
+#endif
     return true;
 }
 
@@ -134,7 +193,7 @@ bool SDC_Motor::GetPhysicalPos(Ref *ref, double *setpoint, double *dbgParam) con
 #ifndef TEST_SLOW_PWM
     return running_;
 #else
-    return running_ || val_ != 0;
+    return running_ || testPWMVal_ != 0;
 #endif
 }
 
@@ -164,7 +223,7 @@ bool SDC_Motor::Start (double speed, SDC_MotionType *mt, Ref *ref)
     if(running_)
         return false;
 #else
-    if(running_ || val_ != 0)
+    if(running_ || testPWMVal_ != 0)
         return false;
 #endif
 
@@ -245,12 +304,12 @@ bool SDC_Motor::StartSlowPWM(int val, long period, double dutyCycle, SDC_MotionT
 
     if(val)
     {
-        if(val_ && mt_)
+        if(testPWMVal_ && mt_)
             mt = mt_;
 
         if(mt && !mt->CanMove(this))
         {
-            if(val_)
+            if(testPWMVal_)
             {
                 DoStop();
                 mt->MotorStopped(this, true);
@@ -270,11 +329,11 @@ bool SDC_Motor::StartSlowPWM(int val, long period, double dutyCycle, SDC_MotionT
         else if(dutyCycle > 1)
             dutyCycle = 1;
 
-        CONV_TIME(period)
+        CONV_TIME_VAR(period)
         hiPeriod_ = round(period*dutyCycle);
         loPeriod_ = period - hiPeriod_;
         if(hiPeriod_ == 0)
-            val_ = 0;
+            testPWMVal_ = 0;
         else
         {
             if(loPeriod_ == 0)
@@ -282,13 +341,13 @@ bool SDC_Motor::StartSlowPWM(int val, long period, double dutyCycle, SDC_MotionT
             else
             {
                 pwmState_ = PWM_HIGH;
-                ts_ = GET_TIME;
+                tsPWMStart_ = GET_TIME;
             }
 
-            if(!val_ && mt_)
+            if(!testPWMVal_ && mt_)
                 mt_->MotorStarted(this);
-            val_ = val;
-            SetVal();
+            testPWMVal_ = val;
+            SetVal(testPWMVal_);
             setpoint_ = 0;
             return true;
         }
@@ -309,7 +368,7 @@ void SDC_Motor::DoStop()
     DoGetPos(&upos_, &ts_);
     speed_ = 0;
 #ifdef TEST_SLOW_PWM
-    val_ = 0;
+    testPWMVal_ = 0;
 #endif
     pid_.SetMode(MANUAL);
     analogWrite(speedPin_, 0);

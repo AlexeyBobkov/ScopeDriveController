@@ -10,6 +10,7 @@
 #define SDC_MOTOR_H_
 
 #define TEST_SLOW_PWM
+#define USE_SLOW_PWM
 
 #include <PID_v1.h>
 
@@ -57,13 +58,27 @@ public:
 class SDC_Motor : public SDC_MotorItf
 {
 public:
+    // profile for low frequency PWM
+    struct PWMProfile
+    {
+        uint8_t value_;     // required value
+        uint8_t magnitude_; // PWM magnitude
+        int16_t period_;    // PWM (and PID) period
+        PWMProfile() {}
+        PWMProfile(uint8_t v, uint8_t m, int16_t p) : value_(v), magnitude_(m), period_(p) {}
+    };
+
     struct Options
     {
         double maxSpeed_;  // units/ms
         double Kp_, Ki_;
+
+        // PWM profiles
+        PWMProfile loProfile_, hiProfile_;
+
         Options() {}
-        Options(double max_speed, double Kp, double Ki)
-            : maxSpeed_(max_speed), Kp_(Kp), Ki_(Ki) {}
+        Options(double max_speed, double Kp, double Ki, const PWMProfile &lp, const PWMProfile &hp)
+            : maxSpeed_(max_speed), Kp_(Kp), Ki_(Ki), loProfile_(lp), hiProfile_(hp) {}
     };
 
     SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, volatile long *encPos);
@@ -94,16 +109,18 @@ public:
 private:
     double maxSpeed_;  // units/ms
     uint8_t dirPin_, speedPin_; // pins
-    SDC_MotionType *mt_;
     volatile long *encPos_;
 
+    // PWM profiles
+    PWMProfile loProfile_, hiProfile_;
+
+    SDC_MotionType *mt_;
     bool running_;
     double upos_;
     long ts_;
     double speed_;      // units/ms
     PID pid_;
 
-#ifdef TEST_SLOW_PWM
     enum PWM_STATE
     {
         PWM_CONST,
@@ -111,11 +128,18 @@ private:
         PWM_HIGH
     };
 
-    int val_;
-    long hiPeriod_, loPeriod_;
+    double magRatio_, periodRatio_, valDiff_;
+    long tsPWMStart_;
+    long hiPeriod_;
     PWM_STATE pwmState_;
+    int val_;
 
-    void SetVal();
+    void SetVal(int val);
+    void SetVal(uint8_t val, bool positive);
+
+#ifdef TEST_SLOW_PWM
+    long loPeriod_;
+    int testPWMVal_;
 #endif
     
     double setpoint_, input_, output_;
