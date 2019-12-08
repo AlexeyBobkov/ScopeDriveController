@@ -68,6 +68,16 @@ public:
         PWMProfile(uint8_t v, uint8_t m, int16_t p) : value_(v), magnitude_(m), period_(p) {}
     };
 
+    // encapsulated approximation model
+    class PWMApproximation
+    {
+        PWMProfile loProfile_;
+        double magRatio_, periodRatio_;
+    public:
+        PWMApproximation(const PWMProfile &lp, const PWMProfile &hp);
+        void MakeApproximation(int absSp, uint8_t *magnitude, double *period);
+    };
+
     struct Options
     {
         double maxSpeed_;  // units/ms
@@ -113,6 +123,7 @@ private:
 
     // PWM profiles
     PWMProfile loProfile_, hiProfile_;
+    PWMApproximation pwmApprox_;
 
     SDC_MotionType *mt_;
     bool running_;
@@ -128,7 +139,6 @@ private:
         PWM_HIGH
     };
 
-    double magRatio_, periodRatio_, valDiff_;
     long tsPWMStart_;
     long hiPeriod_;
     PWM_STATE pwmState_;

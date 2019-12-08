@@ -21,18 +21,32 @@
 #define CONV_TIME_VAR(x)    x *= 1000;
 
 
+///////////////////////////////////////////////////////////////////////////////////////
+SDC_Motor::PWMApproximation::PWMApproximation(const PWMProfile &lp, const PWMProfile &hp) : loProfile_(lp)
+{
+    double valDiff = hp.value_ - lp.value_;
+    magRatio_ = pow(double(hp.magnitude_)/double(lp.magnitude_), 1/valDiff);
+    periodRatio_ = pow(double(hp.period_)/double(lp.period_), 1/valDiff);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+void SDC_Motor::PWMApproximation::MakeApproximation(int absSp, uint8_t *magnitude, double *period)
+{
+    double power = absSp - loProfile_.value_;
+    *magnitude   = loProfile_.magnitude_*pow(magRatio_, power) + 0.5;
+    *period      = loProfile_.period_*pow(periodRatio_, power);
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////
 SDC_Motor::SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, volatile long *encPos)
     :   maxSpeed_(options.maxSpeed_), dirPin_(dirPin), speedPin_(speedPin), encPos_(encPos),
-        loProfile_(options.loProfile_), hiProfile_(options.hiProfile_), mt_(NULL), running_(false),
+        loProfile_(options.loProfile_), hiProfile_(options.hiProfile_), pwmApprox_(options.loProfile_, options.hiProfile_), mt_(NULL), running_(false),
         pid_(&input_, &output_, &setpoint_, options.Kp_, options.Ki_, 0.0, P_ON_E, DIRECT)
 #ifdef TEST_SLOW_PWM
         , testPWMVal_(0)
 #endif
 {
-    magRatio_ = double(hiProfile_.magnitude_)/double(loProfile_.magnitude_);
-    periodRatio_ = double(hiProfile_.period_)/double(loProfile_.period_);
-    valDiff_ = hiProfile_.value_ - loProfile_.value_;
-
     pid_.SetOutputLimits(-255,255);
     pid_.SetSampleTime(100);
 }
@@ -136,18 +150,14 @@ bool SDC_Motor::Run()
             return true;
         }
 
-        double period;
         uint8_t magnitude;
-        if(absSp >= hiProfile_.value_)
+        double period;
+        if(absSp < hiProfile_.value_)
+            pwmApprox_.MakeApproximation(absSp, &magnitude, &period);
+        else
         {
             magnitude = hiProfile_.magnitude_;
             period = hiProfile_.period_;
-        }
-        else
-        {
-            double power = (absSp - loProfile_.value_)/valDiff_;
-            magnitude   = loProfile_.magnitude_*pow(magRatio_, power) + 0.5;
-            period      = loProfile_.period_*pow(periodRatio_, power);
         }
 
         // set to high
