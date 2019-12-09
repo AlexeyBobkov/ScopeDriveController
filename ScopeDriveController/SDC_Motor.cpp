@@ -21,21 +21,43 @@
 #define CONV_TIME_VAR(x)    x *= 1000;
 
 
+#ifdef USE_EXPONENTIAL_APPROXIMATION
+
 ///////////////////////////////////////////////////////////////////////////////////////
 SDC_Motor::PWMApproximation::PWMApproximation(const PWMProfile &lp, const PWMProfile &hp) : loProfile_(lp)
 {
     double valDiff = hp.value_ - lp.value_;
-    magRatio_ = pow(double(hp.magnitude_)/double(lp.magnitude_), 1/valDiff);
-    periodRatio_ = pow(double(hp.period_)/double(lp.period_), 1/valDiff);
+    magnitudeCoeff_ = pow(double(hp.magnitude_)/double(lp.magnitude_),  1/valDiff);
+    periodCoeff_    = pow(double(hp.period_)/double(lp.period_),        1/valDiff);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
 void SDC_Motor::PWMApproximation::MakeApproximation(int absSp, uint8_t *magnitude, double *period)
 {
     double power = absSp - loProfile_.value_;
-    *magnitude   = loProfile_.magnitude_*pow(magRatio_, power) + 0.5;
-    *period      = loProfile_.period_*pow(periodRatio_, power);
+    *magnitude   = loProfile_.magnitude_*pow(magnitudeCoeff_, power) + 0.5;
+    *period      = loProfile_.period_*pow(periodCoeff_, power);
 }
+
+#else   // linear approximation
+
+///////////////////////////////////////////////////////////////////////////////////////
+SDC_Motor::PWMApproximation::PWMApproximation(const PWMProfile &lp, const PWMProfile &hp) : loProfile_(lp)
+{
+    double valDiff = hp.value_ - lp.value_;
+    magnitudeCoeff_ = (hp.magnitude_ - lp.magnitude_)/valDiff;
+    periodCoeff_    = (hp.period_ - lp.period_)/valDiff;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+void SDC_Motor::PWMApproximation::MakeApproximation(int absSp, uint8_t *magnitude, double *period)
+{
+    double diff = absSp - loProfile_.value_;
+    *magnitude   = loProfile_.magnitude_ + magnitudeCoeff_ * diff + 0.5;
+    *period      = loProfile_.period_ + periodCoeff_ * diff;
+}
+
+#endif
 
 
 ///////////////////////////////////////////////////////////////////////////////////////

@@ -12,6 +12,8 @@
 #define TEST_SLOW_PWM
 #define USE_SLOW_PWM
 
+#define USE_EXPONENTIAL_APPROXIMATION   // if not defined, linear approximation is used
+
 #include <PID_v1.h>
 
 // motion law
@@ -68,16 +70,6 @@ public:
         PWMProfile(uint8_t v, uint8_t m, int16_t p) : value_(v), magnitude_(m), period_(p) {}
     };
 
-    // encapsulated approximation model
-    class PWMApproximation
-    {
-        PWMProfile loProfile_;
-        double magRatio_, periodRatio_;
-    public:
-        PWMApproximation(const PWMProfile &lp, const PWMProfile &hp);
-        void MakeApproximation(int absSp, uint8_t *magnitude, double *period);
-    };
-
     struct Options
     {
         double maxSpeed_;  // units/ms
@@ -117,6 +109,16 @@ public:
 #endif
 
 private:
+    // encapsulated approximation model
+    class PWMApproximation
+    {
+        PWMProfile loProfile_;
+        double magnitudeCoeff_, periodCoeff_;
+    public:
+        PWMApproximation(const PWMProfile &lp, const PWMProfile &hp);
+        void MakeApproximation(int absSp, uint8_t *magnitude, double *period);
+    };
+
     double maxSpeed_;  // units/ms
     uint8_t dirPin_, speedPin_; // pins
     volatile long *encPos_;

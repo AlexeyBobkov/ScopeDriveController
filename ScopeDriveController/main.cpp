@@ -388,13 +388,13 @@ static void LogData()
                 {
                 default: break;
                 case LMODE_MPOS:    pos[i] = *SDC_GetMotorAzmEncoderPositionPtr(); break;
-                case LMODE_MLOG:    motorAZM.GetLogicalPos(&ref); pos[i] = (long)ref.upos_; break;
+                case LMODE_MLOG:    motorAZM.GetLogicalPos(&ref); pos[i] = round(ref.upos_); break;
                 case LMODE_MSPD:    pos[i] = long(motorAZM.GetSpeed()*MSPEED_SCALE); break;
-                case LMODE_MERR:    motorAZM.GetDeviation(&ref); pos[i] = (long)ref.upos_; break;
+                case LMODE_MERR:    motorAZM.GetDeviation(&ref); pos[i] = round(ref.upos_); break;
                 case LMODE_APOS:    pos[i] = *SDC_GetAzmEncoderPositionPtr(); break;
-                case LMODE_ALOG:    adapterAZM.GetLogicalPos(&ref); pos[i] = (long)ref.upos_; break;
+                case LMODE_ALOG:    adapterAZM.GetLogicalPos(&ref); pos[i] = round(ref.upos_); break;
                 case LMODE_ASPD:    pos[i] = long(adapterAZM.GetSpeed()*ASPEED_SCALE); break;
-                case LMODE_AERR:    adapterAZM.GetDeviation(&ref); pos[i] = (long)ref.upos_; break;
+                case LMODE_AERR:    adapterAZM.GetDeviation(&ref); pos[i] = round(ref.upos_); break;
                 case LMODE_DEBUG:   pos[i] = GetDebugModeValue(); break;
                 }
             }
@@ -404,13 +404,13 @@ static void LogData()
                 {
                 default: break;
                 case LMODE_MPOS:    pos[i] = *SDC_GetMotorAltEncoderPositionPtr(); break;
-                case LMODE_MLOG:    motorALT.GetLogicalPos(&ref); pos[i] = (long)ref.upos_; break;
+                case LMODE_MLOG:    motorALT.GetLogicalPos(&ref); pos[i] = round(ref.upos_); break;
                 case LMODE_MSPD:    pos[i] = long(motorALT.GetSpeed()*MSPEED_SCALE); break;
-                case LMODE_MERR:    motorALT.GetDeviation(&ref); pos[i] = (long)ref.upos_; break;
+                case LMODE_MERR:    motorALT.GetDeviation(&ref); pos[i] = round(ref.upos_); break;
                 case LMODE_APOS:    pos[i] = *SDC_GetAltEncoderPositionPtr(); break;
-                case LMODE_ALOG:    adapterALT.GetLogicalPos(&ref); pos[i] = (long)ref.upos_; break;
+                case LMODE_ALOG:    adapterALT.GetLogicalPos(&ref); pos[i] = round(ref.upos_); break;
                 case LMODE_ASPD:    pos[i] = long(adapterALT.GetSpeed()*ASPEED_SCALE); break;
-                case LMODE_AERR:    adapterALT.GetDeviation(&ref); pos[i] = (long)ref.upos_; break;
+                case LMODE_AERR:    adapterALT.GetDeviation(&ref); pos[i] = round(ref.upos_); break;
                 case LMODE_DEBUG:   pos[i] = GetDebugModeValue(); break;
                 }
             }
