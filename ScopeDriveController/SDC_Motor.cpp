@@ -141,12 +141,14 @@ bool SDC_Motor::Run()
         {
             pwmState_ = PWM_CONST;
             SetVal(sp);
+            pid_.SetSampleTime(100);
             return true;
         }
         else if(absSp < loProfile_.value_)
         {
             pwmState_ = PWM_CONST;
             analogWrite(speedPin_, 0);
+            pid_.SetSampleTime(100);
             return true;
         }
 
