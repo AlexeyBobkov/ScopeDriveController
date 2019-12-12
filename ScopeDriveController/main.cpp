@@ -63,17 +63,17 @@ IntlkMotionType intlk;
 // As a real motor is not ideal and has some threshold voltage to start rotation, it may be better to make the Ki smaller than the theoretical value.
 // The system stabilizes slower but oscillates less on slow speeds. (Is oscillation on slow speed really a problem?)
 //
-SDC_Motor motorALT (SDC_Motor::Options(30*M_RESOLUTION/60000, 1.0, 0.8, SDC_Motor::PWMProfile(1, 50, 500), SDC_Motor::PWMProfile(5, 25, 100)),
+SDC_Motor motorALT (SDC_Motor::Options(30*M_RESOLUTION/60000, 1.0, 0.8, 0.0, SDC_Motor::PWMProfile(1, 50, 500), SDC_Motor::PWMProfile(5, 25, 100)),
                     DIR1_OPIN,
                     PWMA_OPIN,
                     SDC_GetMotorAltEncoderPositionPtr());   // 30rpm
 /*
-SDC_Motor motorAZM (SDC_Motor::Options(60*M_RESOLUTION/60000, 0.5, 0.4, SDC_Motor::PWMProfile(1, 150, 600), SDC_Motor::PWMProfile(9, 40, 100)),
+SDC_Motor motorAZM (SDC_Motor::Options(60*M_RESOLUTION/60000, 0.5, 0.4, 0.0, SDC_Motor::PWMProfile(1, 150, 600), SDC_Motor::PWMProfile(9, 40, 100)),
                     DIR2_OPIN,
                     PWMB_OPIN,
                     SDC_GetMotorAzmEncoderPositionPtr());   // 60rpm
 */
-SDC_Motor motorAZM (SDC_Motor::Options(60*M_RESOLUTION/60000, 0.5, 0.4, SDC_Motor::PWMProfile(3, 90, 250), SDC_Motor::PWMProfile(9, 40, 100)),
+SDC_Motor motorAZM (SDC_Motor::Options(60*M_RESOLUTION/60000, 0.5, 0.4, 0.0, SDC_Motor::PWMProfile(3, 90, 250), SDC_Motor::PWMProfile(9, 40, 100)),
                     DIR2_OPIN,
                     PWMB_OPIN,
                     SDC_GetMotorAzmEncoderPositionPtr());   // 60rpm
@@ -81,6 +81,7 @@ SDC_Motor motorAZM (SDC_Motor::Options(60*M_RESOLUTION/60000, 0.5, 0.4, SDC_Moto
 SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(218.9,    // ratio
                                                       0.6,      // speed deviation factor
                                                       1.0,      // Ki for regular movement
+                                                      0.0,      // Kd for regular movement
                                                       0.4,      // Kp for fast movement
                                                       0.7,      // Kp for very fast movement
                                                       5.0,      // diff 2 (deviation allowing fast movement)
@@ -91,6 +92,7 @@ SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(218.9,    // ratio
 SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(177.1,    // ratio
                                                       0.6,      // speed deviation factor
                                                       1.0,      // Ki for regular movement
+                                                      0.0,      // Kd for regular movement
                                                       0.4,      // Kp for fast movement factor
                                                       0.7,      // Kp for very fast movement
                                                       5.0,      // diff 2

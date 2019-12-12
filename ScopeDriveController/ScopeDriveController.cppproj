@@ -28,15 +28,15 @@
     <eraseonlaunchrule>0</eraseonlaunchrule>
     <AsfFrameworkConfig>
       <framework-data>
-  <options />
-  <configurations />
-  <files />
-  <documentation help="" />
-  <offline-documentation help="" />
-  <dependencies>
-    <content-extension eid="atmel.asf" uuidref="Atmel.ASF" version="3.34.1" />
-  </dependencies>
-</framework-data>
+        <options />
+        <configurations />
+        <files />
+        <documentation help="" />
+        <offline-documentation help="" />
+        <dependencies>
+          <content-extension eid="atmel.asf" uuidref="Atmel.ASF" version="3.34.1" />
+        </dependencies>
+      </framework-data>
     </AsfFrameworkConfig>
     <ResetRule>0</ResetRule>
     <EraseKey />
@@ -345,9 +345,11 @@
       <SubType>compile</SubType>
       <Link>ArduinoLibraries\EEPROM.cpp</Link>
     </Compile>
-    <Compile Include="..\..\..\ArduinoUno\arduino-1.0.6\libraries\PID-1.2.0\PID_v1.cpp">
+    <Compile Include="PID_v1.cpp">
       <SubType>compile</SubType>
-      <Link>ArduinoLibraries\PID_v1.cpp</Link>
+    </Compile>
+    <Compile Include="PID_v1.h">
+      <SubType>compile</SubType>
     </Compile>
     <Compile Include="SDC_Encoders.cpp">
       <SubType>compile</SubType>
