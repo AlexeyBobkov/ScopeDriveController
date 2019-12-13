@@ -52,12 +52,15 @@ bool SDC_MotorAdapter::SetDevSpeedAndSetTunings(double f)
 
 void SDC_MotorAdapter::UpdateSpeed(double speed)
 {
+    speed_ = speed;
+    /*
     if(speed > maxSpeed_)
         speed_ = maxSpeed_;
     else if(speed < -maxSpeed_)
         speed_ = -maxSpeed_;
     else
         speed_ = speed;
+    */
 }
 
 void SDC_MotorAdapter::ReInitializePID(SpeedMode newMode, double speed, double Kp, double Ki)

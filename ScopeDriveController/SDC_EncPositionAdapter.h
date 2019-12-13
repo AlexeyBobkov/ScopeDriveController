@@ -9,7 +9,7 @@
 #ifndef SDC_ENCPOSITIONADAPTER_H_
 #define SDC_ENCPOSITIONADAPTER_H_
 
-#include <PID_v1.h>
+#include "PID_v1.h"
 #include "SDC_Motor.h"
 
 class SDC_MotorAdapter : public SDC_MotorItf, private SDC_MotionType

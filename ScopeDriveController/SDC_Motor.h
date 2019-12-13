@@ -14,13 +14,14 @@
 
 #define USE_EXPONENTIAL_APPROXIMATION   // if not defined, linear approximation is used
 
-#include <PID_v1.h>
+#include "PID_v1.h"
 
 // motion law
 class SDC_MotorItf;
 class SDC_MotionType
 {
 public:
+    ~SDC_MotionType() {}
     virtual bool    CanMove(const SDC_MotorItf *m) const                = 0;    // can the motor move?
     virtual void    MotorStarted(SDC_MotorItf *m)                       = 0;    // action on motor started
     virtual void    MotorStopped(SDC_MotorItf *m, bool byStopCommand)   = 0;    // action on motor stopped
