@@ -18,11 +18,11 @@ public:
     struct Options
     {
         double scopeToMotor_;
-        double deviationSpeedFactor_, Ki_, KpFast2_, KpFast3_;
+        double deviationSpeedFactor_, Ki_, Kd_, KpFast2_, KpFast3_;
         double diff2_, diff3_;
         Options() {}
-        Options(double scopeToMotor, double deviationSpeedFactor, double Ki, double KpFast2, double KpFast3, double diff2, double diff3)
-            : scopeToMotor_(scopeToMotor), deviationSpeedFactor_(deviationSpeedFactor), Ki_(Ki), KpFast2_(KpFast2), KpFast3_(KpFast3), diff2_(diff2), diff3_(diff3) {}
+        Options(double scopeToMotor, double deviationSpeedFactor, double Ki, double Kd, double KpFast2, double KpFast3, double diff2, double diff3)
+            : scopeToMotor_(scopeToMotor), deviationSpeedFactor_(deviationSpeedFactor), Ki_(Ki), Kd_(Kd), KpFast2_(KpFast2), KpFast3_(KpFast3), diff2_(diff2), diff3_(diff3) {}
     };
 
     enum SpeedMode
@@ -66,7 +66,7 @@ private:
     volatile long *scopeEncPos_;
     double normalSpeed_;
     SDC_MotorItf *motor_;
-    double A_, Kp_, Ki_;
+    double A_, Kp_, Ki_, Kd_;
 
     double maxSpeed_;
     bool running_;
@@ -80,7 +80,7 @@ private:
     PID pid_;
 
     void UpdateSpeed(double speed);
-    void ReInitializePID(SpeedMode newMode, double speed, double Kp, double Ki);
+    void ReInitializePID(SpeedMode newMode, double speed, double Kp, double Ki, double Kd);
     void AdjustPID(double diff, long ts);
     void DoStop();
 };

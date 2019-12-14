@@ -21,7 +21,7 @@ class SDC_MotorItf;
 class SDC_MotionType
 {
 public:
-    ~SDC_MotionType() {}
+    virtual ~SDC_MotionType() {}
     virtual bool    CanMove(const SDC_MotorItf *m) const                = 0;    // can the motor move?
     virtual void    MotorStarted(SDC_MotorItf *m)                       = 0;    // action on motor started
     virtual void    MotorStopped(SDC_MotorItf *m, bool byStopCommand)   = 0;    // action on motor stopped
@@ -74,14 +74,14 @@ public:
     struct Options
     {
         double maxSpeed_;  // units/ms
-        double Kp_, Ki_;
+        double Kp_, Ki_, Kd_;
 
         // PWM profiles
         PWMProfile loProfile_, hiProfile_;
 
         Options() {}
-        Options(double max_speed, double Kp, double Ki, const PWMProfile &lp, const PWMProfile &hp)
-            : maxSpeed_(max_speed), Kp_(Kp), Ki_(Ki), loProfile_(lp), hiProfile_(hp) {}
+        Options(double max_speed, double Kp, double Ki, double Kd, const PWMProfile &lp, const PWMProfile &hp)
+            : maxSpeed_(max_speed), Kp_(Kp), Ki_(Ki), Kd_(Kd), loProfile_(lp), hiProfile_(hp) {}
     };
 
     SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, volatile long *encPos);

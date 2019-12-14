@@ -45,8 +45,14 @@ bool SDC_MotorAdapter::SetDevSpeedAndSetTunings(double f)
     Kp_ = f * normalSpeed_ * options_.scopeToMotor_;
     if(Kp_ > 1/A_)
         Kp_ = 1/A_;
-    Ki_ = options_.Ki_ * (Kp_ * Kp_) * A_ / 4;  // optimal Ki = Kp^2*A/4
-    pid_.SetTunings(Kp_, Ki_, 0);
+
+    Kd_ = options_.Kd_ * f * normalSpeed_ * options_.scopeToMotor_;
+    if(Kd_ > 1/A_)
+        Kd_ = 1/A_;
+
+    Ki_ = options_.Ki_ * (Kp_ * Kp_) * A_ / (4 * (1 + A_ * Kd_));    // optimal Ki = A*Kp^2/(4*(1 + A*Kd))
+
+    pid_.SetTunings(Kp_, Ki_, Kd_);
     return true;
 }
 
@@ -63,15 +69,16 @@ void SDC_MotorAdapter::UpdateSpeed(double speed)
     */
 }
 
-void SDC_MotorAdapter::ReInitializePID(SpeedMode newMode, double speed, double Kp, double Ki)
+void SDC_MotorAdapter::ReInitializePID(SpeedMode newMode, double speed, double Kp, double Ki, double Kd)
 {
     if(speedMode_ != newMode)
     {
         speedMode_ = newMode;
         pid_.SetMode(MANUAL);
         output_ = speed;    // set PID integral sum to predefined value
+        input_ = 0;
         pid_.SetMode(AUTOMATIC);
-        pid_.SetTunings(Kp, Ki, 0);
+        pid_.SetTunings(Kp, Ki, Kd);
     }
 }
 
@@ -102,11 +109,11 @@ void SDC_MotorAdapter::AdjustPID(double diff, long ts)
     if(diff < 0)
         diff = -diff;
     if(diff > diff3)
-        ReInitializePID(FAST3, 0, options_.KpFast3_, 0);                        // very fast movement
+        ReInitializePID(FAST3, 0, options_.KpFast3_, 0, 0);                         // very fast movement
     else if(diff > diff2)
-        ReInitializePID(FAST2, 0, options_.KpFast2_, 0);                        // fast movement
+        ReInitializePID(FAST2, 0, options_.KpFast2_, 0, 0);                         // fast movement
     else
-        ReInitializePID(REGULAR, speed_ * options_.scopeToMotor_, Kp_, Ki_);    // regular speed
+        ReInitializePID(REGULAR, speed_ * options_.scopeToMotor_, Kp_, Ki_, Kd_);   // regular speed
 }
 
 // call periodically in loop()
@@ -192,6 +199,7 @@ bool SDC_MotorAdapter::Start (double speed, SDC_MotionType *mt, Ref *ref)
         *ref = Ref(refScopePos_, ts_);
     UpdateSpeed(speed);
     output_ = speed_ * options_.scopeToMotor_;
+    input_ = 0;
     pid_.SetMode(AUTOMATIC);
     AdjustPID(0, ts_);
     return true;
