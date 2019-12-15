@@ -148,7 +148,6 @@ private:
     int val_;
 
     void SetVal(int val);
-    void SetVal(uint8_t val, bool positive);
 
 #ifdef TEST_SLOW_PWM
     long loPeriod_;
