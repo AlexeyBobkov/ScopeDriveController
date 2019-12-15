@@ -64,7 +64,7 @@ void SDC_Motor::PWMApproximation::MakeApproximation(int absSp, uint8_t *magnitud
 SDC_Motor::SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, volatile long *encPos)
     :   maxSpeed_(options.maxSpeed_), dirPin_(dirPin), speedPin_(speedPin), encPos_(encPos),
         loProfile_(options.loProfile_), hiProfile_(options.hiProfile_), pwmApprox_(options.loProfile_, options.hiProfile_), mt_(NULL), running_(false),
-        pid_(&input_, &output_, &setpoint_, options.Kp_, options.Ki_, options.Kd_, P_ON_E, DIRECT)
+        pid_(&input_, &output_, &setpoint_, options.Kp_, options.Ki_, options.Kd_, DIRECT)
 #ifdef TEST_SLOW_PWM
         , testPWMVal_(0)
 #endif

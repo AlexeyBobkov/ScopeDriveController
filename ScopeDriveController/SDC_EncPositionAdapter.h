@@ -80,7 +80,7 @@ private:
     PID pid_;
 
     void UpdateSpeed(double speed);
-    void ReInitializePID(SpeedMode newMode, double speed, double Kp, double Ki, double Kd);
+    void ReInitializePID(SpeedMode newMode, double speed, double lastError, double Kp, double Ki, double Kd);
     void AdjustPID(double diff, long ts);
     void DoStop();
 };

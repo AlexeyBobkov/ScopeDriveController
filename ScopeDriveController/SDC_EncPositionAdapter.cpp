@@ -69,14 +69,14 @@ void SDC_MotorAdapter::UpdateSpeed(double speed)
     */
 }
 
-void SDC_MotorAdapter::ReInitializePID(SpeedMode newMode, double speed, double Kp, double Ki, double Kd)
+void SDC_MotorAdapter::ReInitializePID(SpeedMode newMode, double speed, double lastError, double Kp, double Ki, double Kd)
 {
     if(speedMode_ != newMode)
     {
         speedMode_ = newMode;
         pid_.SetMode(MANUAL);
         output_ = speed;    // set PID integral sum to predefined value
-        input_ = 0;
+        input_ = lastError; // set last error to predefined value
         pid_.SetMode(AUTOMATIC);
         pid_.SetTunings(Kp, Ki, Kd);
     }
@@ -109,11 +109,11 @@ void SDC_MotorAdapter::AdjustPID(double diff, long ts)
     if(diff < 0)
         diff = -diff;
     if(diff > diff3)
-        ReInitializePID(FAST3, 0, options_.KpFast3_, 0, 0);                         // very fast movement
+        ReInitializePID(FAST3, 0, 0, options_.KpFast3_, 0, 0);                         // very fast movement
     else if(diff > diff2)
-        ReInitializePID(FAST2, 0, options_.KpFast2_, 0, 0);                         // fast movement
+        ReInitializePID(FAST2, 0, 0, options_.KpFast2_, 0, 0);                         // fast movement
     else
-        ReInitializePID(REGULAR, speed_ * options_.scopeToMotor_, Kp_, Ki_, Kd_);   // regular speed
+        ReInitializePID(REGULAR, speed_ * options_.scopeToMotor_, diff, Kp_, Ki_, Kd_);   // regular speed
 }
 
 // call periodically in loop()

@@ -6,7 +6,11 @@
  **********************************************************************************************/
 
 /**********************************************************************************************
- * Alexey Bobkov: slightly modified
+ * Alexey Bobkov: the original library is slightly modified.
+ * 1) We are stabilizing the motor position, which is increasing all the time. So, we cannot use
+ *    last input instead of last error, as it is often done in other scenarios.
+ * 2) We always use P_ON_E mode and newer P_ON_M. So, the appropriate code is deleted.
+ * 3) Some other small refactoring.
  **********************************************************************************************/
 
 
@@ -23,7 +27,7 @@
  *    reliable defaults, so we need to have the user set them.
  ***************************************************************************/
 PID::PID(double* Input, double* Output, double* Setpoint,
-         double Kp, double Ki, double Kd, int POn, int ControllerDirection)
+         double Kp, double Ki, double Kd, int ControllerDirection)
 {
     myOutput = Output;
     myInput = Input;
@@ -36,23 +40,10 @@ PID::PID(double* Input, double* Output, double* Setpoint,
     SampleTime = 100;                           //default Controller Sample Time is 0.1 seconds
 
     PID::SetControllerDirection(ControllerDirection);
-    PID::SetTunings(Kp, Ki, Kd, POn);
+    PID::SetTunings(Kp, Ki, Kd);
 
     lastTime = millis() - SampleTime;
 }
-
-/*Constructor (...)*********************************************************
- *    To allow backwards compatability for v1.1, or for people that just want
- *    to use Proportional on Error without explicitly saying so
- ***************************************************************************/
-
-PID::PID(double* Input, double* Output, double* Setpoint,
-         double Kp, double Ki, double Kd, int ControllerDirection)
-            :  PID::PID(Input, Output, Setpoint, Kp, Ki, Kd, P_ON_E, ControllerDirection)
-{
-
-}
-
 
 /* Compute() **********************************************************************
  *     This, as they say, is where the magic happens.  this function should be called
@@ -72,27 +63,16 @@ bool PID::Compute()
     double input = *myInput;
     double error = *mySetpoint - input;
     double dError = (error - lastError);
+
+    /*Compute integral sum*/
     outputSum += (ki * error);
-
-    /*Add Proportional on Measurement, if P_ON_M is specified*/
-    if(!pOnE)
-        outputSum -= kp * dError;
-
     if(outputSum > outMax)
         outputSum = outMax;
     else if(outputSum < outMin)
         outputSum = outMin;
 
-    /*Add Proportional on Error, if P_ON_E is specified*/
-    double output;
-    if(pOnE)
-        output = kp * error;
-    else
-        output = 0;
-
     /*Compute Rest of PID Output*/
-    output += outputSum + kd * dError;
-
+    double output = kp * error + outputSum + kd * dError;
     if(output > outMax)
         output = outMax;
     else if(output < outMin)
@@ -110,13 +90,10 @@ bool PID::Compute()
  * it's called automatically from the constructor, but tunings can also
  * be adjusted on the fly during normal operation
  ******************************************************************************/
-void PID::SetTunings(double Kp, double Ki, double Kd, int POn)
+void PID::SetTunings(double Kp, double Ki, double Kd)
 {
     if (Kp < 0 || Ki < 0 || Kd < 0)
         return;
-
-    pOn = POn;
-    pOnE = POn == P_ON_E;
 
     orgKp = Kp;
     orgKi = Ki;
@@ -135,14 +112,6 @@ void PID::SetTunings(double Kp, double Ki, double Kd, int POn)
         ki = Ki * SampleTimeInSec;
         kd = Kd / SampleTimeInSec;
     }
-}
-
-/* SetTunings(...)*************************************************************
- * Set Tunings using the last-rembered POn setting
- ******************************************************************************/
-void PID::SetTunings(double Kp, double Ki, double Kd)
-{
-    SetTunings(Kp, Ki, Kd, pOn); 
 }
 
 /* SetSampleTime(...) *********************************************************
