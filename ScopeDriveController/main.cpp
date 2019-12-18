@@ -88,10 +88,10 @@ SDC_Motor motorAZM (SDC_Motor::Options(60*M_RESOLUTION/60000,               // 6
 //
 SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(218.9,    // ratio
                                                       0.6,      // speed deviation factor
-                                                      1.0,      // Ki for regular movement
-                                                      0.1,      // Kd for regular movement
-                                                      0.4,      // Kp for fast movement
-                                                      0.7,      // Kp for very fast movement
+                                                      1.0,      // Ki factor for regular movement
+                                                      0.1,      // Kd factor for regular movement
+                                                      0.4,      // Kp factor for fast movement
+                                                      0.7,      // Kp factor for very fast movement
                                                       5.0,      // diff 2 (deviation allowing fast movement)
                                                       15.0),    // diff 3 (deviation allowing very fast movement)
                             SDC_GetAltEncoderResolution(),
@@ -99,10 +99,10 @@ SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(218.9,    // ratio
                             &motorALT);
 SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(177.1,    // ratio
                                                       0.6,      // speed deviation factor
-                                                      1.0,      // Ki for regular movement
-                                                      0.1,      // Kd for regular movement
-                                                      0.4,      // Kp for fast movement factor
-                                                      0.7,      // Kp for very fast movement
+                                                      1.0,      // Ki factor for regular movement
+                                                      0.1,      // Kd factor for regular movement
+                                                      0.4,      // Kp factor for fast movement factor
+                                                      0.7,      // Kp factor for very fast movement
                                                       5.0,      // diff 2
                                                       15.0),    // diff 3
                             SDC_GetAzmEncoderResolution(),

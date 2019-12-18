@@ -18,11 +18,11 @@ public:
     struct Options
     {
         double scopeToMotor_;
-        double deviationSpeedFactor_, Ki_, Kd_, KpFast2_, KpFast3_;
+        double deviationSpeedFactor_, KiF_, KdF_, KpFast2F_, KpFast3F_;
         double diff2_, diff3_;
         Options() {}
-        Options(double scopeToMotor, double deviationSpeedFactor, double Ki, double Kd, double KpFast2, double KpFast3, double diff2, double diff3)
-            : scopeToMotor_(scopeToMotor), deviationSpeedFactor_(deviationSpeedFactor), Ki_(Ki), Kd_(Kd), KpFast2_(KpFast2), KpFast3_(KpFast3), diff2_(diff2), diff3_(diff3) {}
+        Options(double scopeToMotor, double deviationSpeedFactor, double KiF, double KdF, double KpFast2F, double KpFast3F, double diff2, double diff3)
+            : scopeToMotor_(scopeToMotor), deviationSpeedFactor_(deviationSpeedFactor), KiF_(KiF), KdF_(KdF), KpFast2F_(KpFast2F), KpFast3F_(KpFast3F), diff2_(diff2), diff3_(diff3) {}
     };
 
     enum SpeedMode

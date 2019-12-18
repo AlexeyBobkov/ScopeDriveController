@@ -72,19 +72,19 @@ SDC_Motor::SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, v
     // Calculate Ki
 
     // Coefficient A in equation
-    //  d(Pos)/dt = A * INPUTanalog, that is, A = RESOLUTION*RPM/60*255,
+    //  d(Pos)/dt = A * INPUT_analog, that is, A = RESOLUTION*RPM/60*255,
     // where
     //  RESOLUTION  - encoder resolution per full cycle
     //  RPM         - motor speed (rotations per minute)
     // The equation is assuming that the motor is an ideal integrator, and neglects its inertia and inductance.
-    double A = options.maxSpeed_ * 3.9216;    // 3.9216 == 1000/255
+    double A = options.maxSpeed_ * 3.9216;    // where maxSpeed = RPM*M_RESOLUTION/60000, and 3.9216 == 1000/255
 
-    // For an ideal motor, the best Ki choice, to avoid oscillations:
-    //  Ki <= A*(Kp^2)/(4*(1+A*Kd))
+    // For an ideal integrator, the best Ki choice, to avoid oscillations:
+    //  Ki = A*(Kp^2)/(4*(1+A*Kd))
     // where
     //  Kp          - proportional coefficient in PID
     //  Kd          - derivative coefficient in PID
-    double Ki = options.Ki_ * A * options.Kp_ * options.Kp_/(4*(1 + A * options.Kd_));
+    double Ki = options.KiF_ * (A * options.Kp_ * options.Kp_/(4*(1 + A * options.Kd_)));
 
     pid_.SetOutputLimits(-255,255);
     pid_.SetTunings(options.Kp_, Ki, options.Kd_);

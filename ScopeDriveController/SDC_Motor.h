@@ -74,14 +74,14 @@ public:
     struct Options
     {
         double maxSpeed_;  // units/ms
-        double Kp_, Ki_, Kd_;
+        double Kp_, KiF_, Kd_;
 
         // PWM profiles
         PWMProfile loProfile_, hiProfile_;
 
         Options() {}
-        Options(double max_speed, double Kp, double Ki, double Kd, const PWMProfile &lp, const PWMProfile &hp)
-            : maxSpeed_(max_speed), Kp_(Kp), Ki_(Ki), Kd_(Kd), loProfile_(lp), hiProfile_(hp) {}
+        Options(double max_speed, double Kp, double KiF, double Kd, const PWMProfile &lp, const PWMProfile &hp)
+            : maxSpeed_(max_speed), Kp_(Kp), KiF_(KiF), Kd_(Kd), loProfile_(lp), hiProfile_(hp) {}
     };
 
     SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, volatile long *encPos);

@@ -23,8 +23,8 @@ SDC_MotorAdapter::SDC_MotorAdapter(const Options &options, long encRes, volatile
     A_ = 1000.0/options_.scopeToMotor_;     // coefficient A in equation d(Pos)/dt = A * Vmotor, i.e., A = 1/scopeToMotor  (*1000 because VMotor is calculated in units/ms, not in units/s)
 
     SetDevSpeedAndSetTunings(options_.deviationSpeedFactor_);
-    options_.KpFast2_ *= 1/A_;
-    options_.KpFast3_ *= 1/A_;
+    options_.KpFast2F_ *= 1/A_;
+    options_.KpFast3F_ *= 1/A_;
 
     pid_.SetSampleTime(PID_POLL_PERIOD);
     pid_.SetOutputLimits(-maxSpeed_*options_.scopeToMotor_, maxSpeed_*options_.scopeToMotor_);
@@ -46,11 +46,11 @@ bool SDC_MotorAdapter::SetDevSpeedAndSetTunings(double f)
     if(Kp_ > 1/A_)
         Kp_ = 1/A_;
 
-    Kd_ = options_.Kd_ * f * normalSpeed_ * options_.scopeToMotor_;
+    Kd_ = options_.KdF_ * f * normalSpeed_ * options_.scopeToMotor_;
     if(Kd_ > 1/A_)
         Kd_ = 1/A_;
 
-    Ki_ = options_.Ki_ * (Kp_ * Kp_) * A_ / (4 * (1 + A_ * Kd_));    // optimal Ki = A*Kp^2/(4*(1 + A*Kd))
+    Ki_ = options_.KiF_ * (Kp_ * Kp_) * A_ / (4 * (1 + A_ * Kd_));    // optimal Ki = A*Kp^2/(4*(1 + A*Kd))
 
     pid_.SetTunings(Kp_, Ki_, Kd_);
     return true;
@@ -109,9 +109,9 @@ void SDC_MotorAdapter::AdjustPID(double diff, long ts)
     if(diff < 0)
         diff = -diff;
     if(diff > diff3)
-        ReInitializePID(FAST3, 0, 0, options_.KpFast3_, 0, 0);                         // very fast movement
+        ReInitializePID(FAST3, 0, 0, options_.KpFast3F_, 0, 0);                         // very fast movement
     else if(diff > diff2)
-        ReInitializePID(FAST2, 0, 0, options_.KpFast2_, 0, 0);                         // fast movement
+        ReInitializePID(FAST2, 0, 0, options_.KpFast2F_, 0, 0);                         // fast movement
     else
         ReInitializePID(REGULAR, speed_ * options_.scopeToMotor_, diff, Kp_, Ki_, Kd_);   // regular speed
 }
