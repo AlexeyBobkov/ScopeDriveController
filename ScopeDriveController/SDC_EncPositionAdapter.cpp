@@ -11,22 +11,28 @@
 #include "SDC_Configuration.h"
 #include "SDC_EncPositionAdapter.h"
 
-#define ADJUST_PID_TMO      1000
-#define PID_POLL_PERIOD     300
-#define SPEED_SMOOTH        0.3
-
-SDC_MotorAdapter::SDC_MotorAdapter(const Options &options, long encRes, volatile long *scopeEncPos, SDC_MotorItf *motor)
-    :   options_(options), scopeEncPos_(scopeEncPos), normalSpeed_(encRes/(24.0*60.0*60.0*1000.0)), motor_(motor),
-        maxSpeed_(motor_->GetMaxSpeed() / options_.scopeToMotor_), running_(false), mt_(NULL), output_(0), lastAdjustPID_(0), speedMode_(STOP),
+SDC_MotorAdapter::SDC_MotorAdapter(const Options &options, volatile long *scopeEncPos, SDC_MotorItf *motor)
+    :   scopeEncPos_(scopeEncPos), motor_(motor), running_(false), mt_(NULL), output_(0), lastAdjustPID_(0), speedMode_(STOP),
         pid_(&input_, &output_, &setpoint_, 1.0, 0.0, 0.0, DIRECT)
 {
+    Init(options);
+}
+
+
+void SDC_MotorAdapter::Init(const Options &options)
+{
+    options_        = options;
+    normalSpeed_    = options_.encRes_/(24.0*60.0*60.0*1000.0);
+    maxSpeed_       = motor_->GetMaxSpeed() / options_.scopeToMotor_;
+    speedSmooth_    = double(options_.pidPollPeriod_)/double(options_.speedSmoothTime_);
+
     A_ = 1000.0/options_.scopeToMotor_;     // coefficient A in equation d(Pos)/dt = A * Vmotor, i.e., A = 1/scopeToMotor  (*1000 because VMotor is calculated in units/ms, not in units/s)
 
     SetDevSpeedAndSetTunings(options_.deviationSpeedFactor_);
     options_.KpFast2F_ *= 1/A_;
     options_.KpFast3F_ *= 1/A_;
 
-    pid_.SetSampleTime(PID_POLL_PERIOD);
+    pid_.SetSampleTime(options_.pidPollPeriod_);
     pid_.SetOutputLimits(-maxSpeed_*options_.scopeToMotor_, maxSpeed_*options_.scopeToMotor_);
 }
 
@@ -34,7 +40,7 @@ SDC_MotorAdapter::SDC_MotorAdapter(const Options &options, long encRes, volatile
 // call once in setup()
 void SDC_MotorAdapter::Setup()
 {
-    lastAdjustPID_ = millis() - ADJUST_PID_TMO;
+    lastAdjustPID_ = millis() - options_.adjustPidTmo_;
 }
 
 bool SDC_MotorAdapter::SetDevSpeedAndSetTunings(double f)
@@ -126,7 +132,7 @@ bool SDC_MotorAdapter::Run()
         setpoint_ = round(refScopePos_ + speed_*(ts - ts_));
         input_ = *scopeEncPos_;
 
-        if(speedMode_ != REGULAR || ts - lastAdjustPID_ > ADJUST_PID_TMO)
+        if(speedMode_ != REGULAR || ts - lastAdjustPID_ > options_.adjustPidTmo_)
             AdjustPID(setpoint_ - input_, ts);
 
         if(pid_.Compute())
@@ -136,7 +142,7 @@ bool SDC_MotorAdapter::Run()
             else
             {
                 double curr = motor_->GetSpeed();
-                motor_->SetSpeed(curr + (output_ - curr)*SPEED_SMOOTH);
+                motor_->SetSpeed(curr + (output_ - curr)*speedSmooth_);
             }
         }
     }

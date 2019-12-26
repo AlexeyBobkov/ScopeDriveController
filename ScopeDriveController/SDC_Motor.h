@@ -71,20 +71,29 @@ public:
         PWMProfile(uint8_t v, uint8_t m, int16_t p) : value_(v), magnitude_(m), period_(p) {}
     };
 
+    enum ApproximationType
+    {
+        LINEAR,
+        EXPONENTIAL
+    };
+
     struct Options
     {
-        double maxSpeed_;  // units/ms
+        long encRes_;
+        double maxSpeedRPM_;  // RPM
         double Kp_, KiF_, Kd_;
 
         // PWM profiles
+        ApproximationType approximationType_;
         PWMProfile loProfile_, hiProfile_;
 
         Options() {}
-        Options(double max_speed, double Kp, double KiF, double Kd, const PWMProfile &lp, const PWMProfile &hp)
-            : maxSpeed_(max_speed), Kp_(Kp), KiF_(KiF), Kd_(Kd), loProfile_(lp), hiProfile_(hp) {}
+        Options(long encRes, double maxSpeedRPM, double Kp, double KiF, double Kd, ApproximationType approximationType, const PWMProfile &lp, const PWMProfile &hp)
+            : encRes_(encRes), maxSpeedRPM_(maxSpeedRPM), Kp_(Kp), KiF_(KiF), Kd_(Kd), approximationType_(approximationType), loProfile_(lp), hiProfile_(hp) {}
     };
 
     SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, volatile long *encPos);
+    void Init(const Options &options);
 
     // call once in setup()
     void Setup();
@@ -113,10 +122,13 @@ private:
     // encapsulated approximation model
     class PWMApproximation
     {
+        ApproximationType approximationType_;
         PWMProfile loProfile_;
         double magnitudeCoeff_, periodCoeff_;
     public:
-        PWMApproximation(const PWMProfile &lp, const PWMProfile &hp);
+        PWMApproximation(ApproximationType approximationType, const PWMProfile &lp, const PWMProfile &hp) {Init(approximationType, lp, hp);}
+        void Init(ApproximationType approximationType, const PWMProfile &lp, const PWMProfile &hp);
+
         void MakeApproximation(int absSp, uint8_t *magnitude, double *period);
     };
 
@@ -147,6 +159,7 @@ private:
     PWM_STATE pwmState_;
     int val_;
 
+    void InitInternal(const Options &options);
     void SetVal(int val);
 
 #ifdef TEST_SLOW_PWM

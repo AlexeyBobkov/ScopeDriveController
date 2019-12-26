@@ -21,54 +21,71 @@
 #define CONV_TIME_VAR(x)    x *= 1000;
 
 
-#ifdef USE_EXPONENTIAL_APPROXIMATION
-
 ///////////////////////////////////////////////////////////////////////////////////////
-SDC_Motor::PWMApproximation::PWMApproximation(const PWMProfile &lp, const PWMProfile &hp) : loProfile_(lp)
+void SDC_Motor::PWMApproximation::Init(ApproximationType approximationType, const PWMProfile &lp, const PWMProfile &hp)
 {
+    approximationType_ = approximationType;
+    loProfile_ = lp;
+
     double valDiff = hp.value_ - lp.value_;
-    magnitudeCoeff_ = pow(double(hp.magnitude_)/double(lp.magnitude_),  1/valDiff);
-    periodCoeff_    = pow(double(hp.period_)/double(lp.period_),        1/valDiff);
-}
+    switch(approximationType_)
+    {
+    case EXPONENTIAL:
+    default:
+        magnitudeCoeff_ = pow(double(hp.magnitude_)/double(lp.magnitude_),  1/valDiff);
+        periodCoeff_    = pow(double(hp.period_)/double(lp.period_),        1/valDiff);
+        break;
 
-///////////////////////////////////////////////////////////////////////////////////////
-void SDC_Motor::PWMApproximation::MakeApproximation(int absSp, uint8_t *magnitude, double *period)
-{
-    double power = absSp - loProfile_.value_;
-    *magnitude   = loProfile_.magnitude_*pow(magnitudeCoeff_, power) + 0.5;
-    *period      = loProfile_.period_*pow(periodCoeff_, power);
-}
-
-#else   // linear approximation
-
-///////////////////////////////////////////////////////////////////////////////////////
-SDC_Motor::PWMApproximation::PWMApproximation(const PWMProfile &lp, const PWMProfile &hp) : loProfile_(lp)
-{
-    double valDiff = hp.value_ - lp.value_;
-    magnitudeCoeff_ = (hp.magnitude_ - lp.magnitude_)/valDiff;
-    periodCoeff_    = (hp.period_ - lp.period_)/valDiff;
+    case LINEAR:
+        magnitudeCoeff_ = (hp.magnitude_ - lp.magnitude_)/valDiff;
+        periodCoeff_    = (hp.period_ - lp.period_)/valDiff;
+        break;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
 void SDC_Motor::PWMApproximation::MakeApproximation(int absSp, uint8_t *magnitude, double *period)
 {
     double diff = absSp - loProfile_.value_;
-    *magnitude   = loProfile_.magnitude_ + magnitudeCoeff_ * diff + 0.5;
-    *period      = loProfile_.period_ + periodCoeff_ * diff;
-}
+    switch(approximationType_)
+    {
+    case EXPONENTIAL:
+    default:
+        *magnitude   = loProfile_.magnitude_*pow(magnitudeCoeff_, diff) + 0.5;
+        *period      = loProfile_.period_*pow(periodCoeff_, diff);
+        break;
 
-#endif
+    case LINEAR:
+        *magnitude   = loProfile_.magnitude_ + magnitudeCoeff_ * diff + 0.5;
+        *period      = loProfile_.period_ + periodCoeff_ * diff;
+        break;
+    }
+}
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
 SDC_Motor::SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, volatile long *encPos)
-    :   maxSpeed_(options.maxSpeed_), dirPin_(dirPin), speedPin_(speedPin), encPos_(encPos),
-        loProfile_(options.loProfile_), hiProfile_(options.hiProfile_), pwmApprox_(options.loProfile_, options.hiProfile_), mt_(NULL), running_(false),
+    :   dirPin_(dirPin), speedPin_(speedPin), encPos_(encPos), pwmApprox_(options.approximationType_, options.loProfile_, options.hiProfile_), mt_(NULL), running_(false),
         pid_(&input_, &output_, &setpoint_, 1, 0, 0, DIRECT)
 #ifdef TEST_SLOW_PWM
         , testPWMVal_(0)
 #endif
 {
+    InitInternal(options);
+}
+
+void SDC_Motor::Init(const Options &options)
+{
+    pwmApprox_.Init(options.approximationType_, options.loProfile_, options.hiProfile_);
+    InitInternal(options);
+}
+
+void SDC_Motor::InitInternal(const Options &options)
+{
+    maxSpeed_  = options.maxSpeedRPM_*options.encRes_/60000.0;
+    loProfile_ = options.loProfile_;
+    hiProfile_ = options.hiProfile_;
+
     // Calculate Ki
 
     // Coefficient A in equation
@@ -77,7 +94,7 @@ SDC_Motor::SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, v
     //  RESOLUTION  - encoder resolution per full cycle
     //  RPM         - motor speed (rotations per minute)
     // The equation is assuming that the motor is an ideal integrator, and neglects its inertia and inductance.
-    double A = options.maxSpeed_ * 3.9216;    // where maxSpeed = RPM*M_RESOLUTION/60000, and 3.9216 == 1000/255
+    double A = maxSpeed_ * 3.9216;    // where maxSpeed = RPM*M_RESOLUTION/60000, and 3.9216 == 1000/255
 
     // For an ideal integrator, the best Ki choice, to avoid oscillations:
     //  Ki = A*(Kp^2)/(4*(1+A*Kd))
@@ -88,7 +105,7 @@ SDC_Motor::SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, v
 
     pid_.SetOutputLimits(-255,255);
     pid_.SetTunings(options.Kp_, Ki, options.Kd_);
-    pid_.SetSampleTime(100);
+    pid_.SetSampleTime(hiProfile_.period_);
 }
 
 void SDC_Motor::Setup()
@@ -175,14 +192,14 @@ bool SDC_Motor::Run()
         {
             pwmState_ = PWM_CONST;
             SetVal(sp);
-            pid_.SetSampleTime(100);
+            pid_.SetSampleTime(hiProfile_.period_);
             return true;
         }
         else if(absSp < loProfile_.value_)
         {
             pwmState_ = PWM_CONST;
             analogWrite(speedPin_, 0);
-            pid_.SetSampleTime(100);
+            pid_.SetSampleTime(hiProfile_.period_);
             return true;
         }
 

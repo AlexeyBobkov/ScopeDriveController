@@ -51,19 +51,23 @@ IntlkMotionType intlk;
 //
 // Low level PID: implementation of "ideal motor", using motor encoders
 //
-SDC_Motor motorALT (SDC_Motor::Options(30*M_RESOLUTION/60000,               // 30rpm
+SDC_Motor motorALT (SDC_Motor::Options(M_RESOLUTION,
+                                       30,                                  // 30rpm
                                        1.0,                                 // Kp (absolute)
                                        1.0,                                 // Ki_factor (Ki = Ki_ideal * Ki_factor, Ki_ideal is calculated from Kp and Kd)
                                        0.06,                                // Kd (absolute)
+                                       SDC_Motor::EXPONENTIAL,
                                        SDC_Motor::PWMProfile(1, 50, 500),
                                        SDC_Motor::PWMProfile(5, 25, 100)),
                     DIR1_OPIN,
                     PWMA_OPIN,
                     SDC_GetMotorAltEncoderPositionPtr());
-SDC_Motor motorAZM (SDC_Motor::Options(60*M_RESOLUTION/60000,               // 60rpm
+SDC_Motor motorAZM (SDC_Motor::Options(M_RESOLUTION,
+                                       60,                                  // 60rpm
                                        0.5,                                 // Kp (absolute)
                                        1.0,                                 // Ki_factor
                                        0.04,                                // Kd (absolute)
+                                       SDC_Motor::EXPONENTIAL,
                                        SDC_Motor::PWMProfile(3, 90, 250),
                                        SDC_Motor::PWMProfile(9, 40, 100)),
                     DIR2_OPIN,
@@ -72,10 +76,12 @@ SDC_Motor motorAZM (SDC_Motor::Options(60*M_RESOLUTION/60000,               // 6
 
 /*
 // alternative profiles
-SDC_Motor motorAZM (SDC_Motor::Options(60*M_RESOLUTION/60000,               // 60rpm
+SDC_Motor motorAZM (SDC_Motor::Options(M_RESOLUTION,
+                                       60,                                  // 60rpm
                                        0.5,                                 // Kp (absolute)
                                        1.0,                                 // Ki_factor
                                        0.04,                                // Kd (absolute)
+                                       SDC_Motor::EXPONENTIAL,
                                        SDC_Motor::PWMProfile(1, 150, 600),
                                        SDC_Motor::PWMProfile(9, 40, 100)),
                     DIR2_OPIN,
@@ -86,26 +92,32 @@ SDC_Motor motorAZM (SDC_Motor::Options(60*M_RESOLUTION/60000,               // 6
 //
 // High level PID: control of "ideal motor" using low-accuracy telescope encoders
 //
-SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(218.9,    // ratio
+SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(SDC_GetAltEncoderResolution(),
+                                                      218.9,    // motor-to-scope encoder resolution ratio
                                                       0.6,      // speed deviation factor
                                                       1.0,      // Ki factor for regular movement
                                                       0.1,      // Kd factor for regular movement
                                                       0.4,      // Kp factor for fast movement
                                                       0.7,      // Kp factor for very fast movement
                                                       5.0,      // diff 2 (deviation allowing fast movement)
-                                                      15.0),    // diff 3 (deviation allowing very fast movement)
-                            SDC_GetAltEncoderResolution(),
+                                                      15.0,     // diff 3 (deviation allowing very fast movement)
+                                                      300,      // PID poll period, ms
+                                                      1000,     // adjust PID timeout, ms
+                                                      1000),    // speed smoothing time, ms
                             SDC_GetAltEncoderPositionPtr(),
                             &motorALT);
-SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(177.1,    // ratio
+SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(SDC_GetAzmEncoderResolution(),
+                                                      177.1,    // motor-to-scope encoder resolution ratio
                                                       0.6,      // speed deviation factor
                                                       1.0,      // Ki factor for regular movement
                                                       0.1,      // Kd factor for regular movement
                                                       0.4,      // Kp factor for fast movement factor
                                                       0.7,      // Kp factor for very fast movement
                                                       5.0,      // diff 2
-                                                      15.0),    // diff 3
-                            SDC_GetAzmEncoderResolution(),
+                                                      15.0,     // diff 3 (deviation allowing very fast movement)
+                                                      300,      // PID poll period, ms
+                                                      1000,     // adjust PID timeout, ms
+                                                      1000),    // speed smoothing time, ms
                             SDC_GetAzmEncoderPositionPtr(),
                             &motorAZM);
 

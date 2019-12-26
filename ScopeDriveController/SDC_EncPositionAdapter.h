@@ -17,12 +17,18 @@ class SDC_MotorAdapter : public SDC_MotorItf, private SDC_MotionType
 public:
     struct Options
     {
+        long encRes_;
         double scopeToMotor_;
         double deviationSpeedFactor_, KiF_, KdF_, KpFast2F_, KpFast3F_;
         double diff2_, diff3_;
+        long pidPollPeriod_;    // ms
+        long adjustPidTmo_;     // ms
+        long speedSmoothTime_;  // ms
         Options() {}
-        Options(double scopeToMotor, double deviationSpeedFactor, double KiF, double KdF, double KpFast2F, double KpFast3F, double diff2, double diff3)
-            : scopeToMotor_(scopeToMotor), deviationSpeedFactor_(deviationSpeedFactor), KiF_(KiF), KdF_(KdF), KpFast2F_(KpFast2F), KpFast3F_(KpFast3F), diff2_(diff2), diff3_(diff3) {}
+        Options(long encRes, double scopeToMotor, double deviationSpeedFactor, double KiF, double KdF, double KpFast2F, double KpFast3F,
+                double diff2, double diff3, long pidPollPeriod, long adjustPIDTmo, long speedSmoothTime)
+                    :   encRes_(encRes), scopeToMotor_(scopeToMotor), deviationSpeedFactor_(deviationSpeedFactor), KiF_(KiF), KdF_(KdF),
+                        KpFast2F_(KpFast2F), KpFast3F_(KpFast3F), diff2_(diff2), diff3_(diff3), pidPollPeriod_(pidPollPeriod), adjustPidTmo_(adjustPIDTmo), speedSmoothTime_(speedSmoothTime) {}
     };
 
     enum SpeedMode
@@ -33,7 +39,8 @@ public:
         FAST3
     };
 
-    SDC_MotorAdapter(const Options &options, long encRes, volatile long *scopeEncPos, SDC_MotorItf *motor);
+    SDC_MotorAdapter(const Options &options, volatile long *scopeEncPos, SDC_MotorItf *motor);
+    void Init(const Options &options);
 
     // call once in setup()
     void Setup();
@@ -69,6 +76,7 @@ private:
     double A_, Kp_, Ki_, Kd_;
 
     double maxSpeed_;
+    double speedSmooth_;
     bool running_;
     SDC_MotionType *mt_;
     double refScopePos_;
