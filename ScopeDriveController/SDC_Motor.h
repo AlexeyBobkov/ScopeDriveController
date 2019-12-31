@@ -9,10 +9,8 @@
 #ifndef SDC_MOTOR_H_
 #define SDC_MOTOR_H_
 
-#define TEST_SLOW_PWM
+//#define TEST_SLOW_PWM
 #define USE_SLOW_PWM
-
-#define USE_EXPONENTIAL_APPROXIMATION   // if not defined, linear approximation is used
 
 #include "PID_v1.h"
 
@@ -94,6 +92,7 @@ public:
 
     SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, volatile long *encPos);
     void Init(const Options &options);
+    const Options& GetOptions() const {return options_;}
 
     // call once in setup()
     void Setup();
@@ -107,7 +106,7 @@ public:
     bool GetPhysicalPos(Ref *ref, double *setpoint, double *dbgParam) const;
     bool GetLogicalPos(Ref *ref) const;
     bool GetDeviation(Ref *ref) const;
-    double GetMaxSpeed() const {return maxSpeed_;}
+    double GetMaxSpeed() const  {return options_.maxSpeedRPM_*options_.encRes_/60000.0;}
     double GetSpeed() const {return speed_;}
     bool Start (double speed, SDC_MotionType *mt, Ref *ref);
     bool SetSpeed(double speed, Ref *ref);
@@ -126,18 +125,17 @@ private:
         PWMProfile loProfile_;
         double magnitudeCoeff_, periodCoeff_;
     public:
-        PWMApproximation(ApproximationType approximationType, const PWMProfile &lp, const PWMProfile &hp) {Init(approximationType, lp, hp);}
-        void Init(ApproximationType approximationType, const PWMProfile &lp, const PWMProfile &hp);
+        PWMApproximation() : approximationType_(LINEAR), loProfile_(0, 0, 100), magnitudeCoeff_(1), periodCoeff_(0) {}
+        //PWMApproximation(ApproximationType approximationType, const PWMProfile &lp, const PWMProfile &hp) {Init(approximationType, lp, hp);}
+        bool Init(ApproximationType approximationType, const PWMProfile &lp, const PWMProfile &hp);
 
         void MakeApproximation(int absSp, uint8_t *magnitude, double *period);
     };
 
-    double maxSpeed_;  // units/ms
     uint8_t dirPin_, speedPin_; // pins
     volatile long *encPos_;
 
-    // PWM profiles
-    PWMProfile loProfile_, hiProfile_;
+    Options options_;
     PWMApproximation pwmApprox_;
 
     SDC_MotionType *mt_;
@@ -157,9 +155,7 @@ private:
     long tsPWMStart_;
     long hiPeriod_;
     PWM_STATE pwmState_;
-    int val_;
 
-    void InitInternal(const Options &options);
     void SetVal(int val);
 
 #ifdef TEST_SLOW_PWM

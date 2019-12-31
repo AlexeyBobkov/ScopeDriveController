@@ -11,14 +11,38 @@
 #include <stddef.h>
 #include "SDC_Storage.h"
 
+template <bool> struct compile_time_assert;
+template<> struct compile_time_assert<true> {};
+
+#define EEPROM_LAYOUT_OFFESET 0xcddc0506UL
+
 // EEPROM layout
 struct Layout
 {
-    uint8_t uSessionId;
-    long    lDefEncResolutionAlt;
-    long    lDefEncResolutionAzm;
-};
+    // every time layout is changed, increment the version
+#define EEPROM_LAYOUT_VERSION 1
 
+    uint32_t LayoutVersion_;
+
+    // common data
+    uint8_t SessionId_;
+    char padding1[64];
+
+    // altitude configuration block
+    SDC_Motor::Options AltMotorOptions_;
+    char padding2[64];
+    SDC_MotorAdapter::Options AltAdapterOptions_;
+    char padding3[64];
+
+    // azimuth configuration block
+    SDC_Motor::Options AzmMotorOptions_;
+    char padding4[64];
+    SDC_MotorAdapter::Options AzmAdapterOptions_;
+    //char padding5[64];
+
+    Layout();
+};
+Layout::Layout() { compile_time_assert<sizeof(Layout) <= 512>(); }
 
 ///////////////////////////////////////////////////////////////////////////////////////
 template <typename T1, typename T2> struct StorageFn;
@@ -55,32 +79,36 @@ void ReadEEPROM(T1 *px, const T2*, size_t offset)
     StorageFn<T1, T2>::Read(px, offset);
 }
 
-template <typename T>
-T GetEEPROM(size_t offset)
+template <typename T1, typename T2>
+T1 GetEEPROM(const T1*, const T2*, size_t offset)
 {
-    return StorageFn<T, T>::Read(offset);
+    return StorageFn<T1, T2>::Read(offset);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
 #define WRITE_EEPROM(x,f)   WriteEEPROM(x, &((Layout*)0)->f, offsetof(Layout,f))
 #define READ_EEPROM(px,f)   ReadEEPROM(px, &((Layout*)0)->f, offsetof(Layout,f))
-#define GET_EEPROM(T,f)     GetEEPROM<T>(offsetof(Layout,f))
+#define GET_EEPROM(T,f)     GetEEPROM((T*)0, &((Layout*)0)->f, offsetof(Layout,f))
 
-
-///////////////////////////////////////////////////////////////////////////////////////
-void SDC_WriteSessionId(uint8_t sessionId)
-{
-    WRITE_EEPROM(sessionId, uSessionId);
-}
-bool SDC_ReadSessionId(uint8_t *pSessionId)
-{
-    READ_EEPROM(pSessionId, uSessionId);
-    return true;
-}
-
+#define CURRENT_VERSION     (uint32_t(EEPROM_LAYOUT_OFFESET) + uint32_t(EEPROM_LAYOUT_VERSION))
 
 ///////////////////////////////////////////////////////////////////////////////////////
-long SDC_ReadDefEncResolutionAlt()           {return GET_EEPROM(long, lDefEncResolutionAlt);}
-long SDC_ReadDefEncResolutionAzm()           {return GET_EEPROM(long, lDefEncResolutionAzm);}
-void SDC_WriteDefEncResolutionAlt(long val)  {WRITE_EEPROM(val, lDefEncResolutionAlt);}
-void SDC_WriteDefEncResolutionAzm(long val)  {WRITE_EEPROM(val, lDefEncResolutionAzm);}
+bool SDC_IsEpromVersionOK()
+{
+    return GET_EEPROM(uint32_t, LayoutVersion_) == CURRENT_VERSION;
+}
+void SDC_SaveCurrentEpromVersion()
+{
+    WRITE_EEPROM(CURRENT_VERSION, LayoutVersion_);
+}
+
+#define DEFINE_EEPROM_FUNCTIONS(Type,Name)                                  \
+    void SDC_Read##Name(Type *pval)         { READ_EEPROM(pval, Name##_); } \
+    void SDC_Write##Name(const Type &val)   { WRITE_EEPROM(val, Name##_); }
+
+///////////////////////////////////////////////////////////////////////////////////////
+DEFINE_EEPROM_FUNCTIONS(uint8_t, SessionId)
+DEFINE_EEPROM_FUNCTIONS(SDC_Motor::Options, AltMotorOptions)
+DEFINE_EEPROM_FUNCTIONS(SDC_Motor::Options, AzmMotorOptions)
+DEFINE_EEPROM_FUNCTIONS(SDC_MotorAdapter::Options, AltAdapterOptions)
+DEFINE_EEPROM_FUNCTIONS(SDC_MotorAdapter::Options, AzmAdapterOptions)

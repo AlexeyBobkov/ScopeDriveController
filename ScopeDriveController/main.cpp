@@ -257,21 +257,6 @@ static void PollMotor(byte buf[], int, int)
     Serial.write(&running, 1);
 }
 
-static void SetDevSpeed(byte buf[], int, int)
-{
-    byte *p = buf;
-    SDC_MotorAdapter *adapter = NULL;
-    switch(*p++)
-    {
-    default: break;
-    case A_ALT: case M_ALT: adapter = &adapterALT; break;
-    case A_AZM: case M_AZM: adapter = &adapterAZM; break;
-    }
-    if(!adapter || !adapter->SetDevSpeedAndSetTunings(*(double*)p))
-        MakeSound(300);
-    Serial.print("r");
-}
-
 
 ///////////////////////////////////////////////////////////////////////////////////////
 #ifdef LOGGING_ON
@@ -627,10 +612,6 @@ static void ProcessSerialCommand(char inchar)
 
     case 'P':   // poll
         SetSerialBuf(1, PollMotor);
-        break;
-
-    case 'D':   // set deviation speed factor and recalculate PID tunings
-        SetSerialBuf(5, SetDevSpeed);
         break;
 
 #ifdef LOGGING_ON

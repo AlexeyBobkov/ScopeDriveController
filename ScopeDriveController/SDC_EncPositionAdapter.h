@@ -41,6 +41,7 @@ public:
 
     SDC_MotorAdapter(const Options &options, volatile long *scopeEncPos, SDC_MotorItf *motor);
     void Init(const Options &options);
+    const Options& GetOptions() const {return options_;}
 
     // call once in setup()
     void Setup();
@@ -48,8 +49,6 @@ public:
     // call periodically in loop()
     // returns true if safe to do some long job
     bool Run();
-
-    bool SetDevSpeedAndSetTunings(double f);
 
     // SDC_MotorItf
     bool IsRunning() const;
@@ -71,11 +70,9 @@ public:
 private:
     Options options_;
     volatile long *scopeEncPos_;
-    double normalSpeed_;
     SDC_MotorItf *motor_;
-    double A_, Kp_, Ki_, Kd_;
+    double Kp_, Ki_, Kd_, KpFast2_, KpFast3_;
 
-    double maxSpeed_;
     double speedSmooth_;
     bool running_;
     SDC_MotionType *mt_;

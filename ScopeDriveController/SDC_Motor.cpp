@@ -22,12 +22,19 @@
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
-void SDC_Motor::PWMApproximation::Init(ApproximationType approximationType, const PWMProfile &lp, const PWMProfile &hp)
+bool SDC_Motor::PWMApproximation::Init(ApproximationType approximationType, const PWMProfile &lp, const PWMProfile &hp)
 {
+    double valDiff = (double)hp.value_ - (double)lp.value_;
+    if(lp.magnitude_ > 255 || hp.magnitude_  > lp.magnitude_ || hp.value_ > hp.magnitude_ || lp.value_ >= hp.value_ || !lp.period_ || !hp.period_ || lp.period_ < hp.period_)
+    {
+        // incorrect values
+        *this = PWMApproximation();
+        return false;
+    }
+
     approximationType_ = approximationType;
     loProfile_ = lp;
 
-    double valDiff = hp.value_ - lp.value_;
     switch(approximationType_)
     {
     case EXPONENTIAL:
@@ -41,6 +48,7 @@ void SDC_Motor::PWMApproximation::Init(ApproximationType approximationType, cons
         periodCoeff_    = (hp.period_ - lp.period_)/valDiff;
         break;
     }
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -65,26 +73,20 @@ void SDC_Motor::PWMApproximation::MakeApproximation(int absSp, uint8_t *magnitud
 
 ///////////////////////////////////////////////////////////////////////////////////////
 SDC_Motor::SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, volatile long *encPos)
-    :   dirPin_(dirPin), speedPin_(speedPin), encPos_(encPos), pwmApprox_(options.approximationType_, options.loProfile_, options.hiProfile_), mt_(NULL), running_(false),
-        pid_(&input_, &output_, &setpoint_, 1, 0, 0, DIRECT)
+    :   dirPin_(dirPin), speedPin_(speedPin), encPos_(encPos), mt_(NULL), running_(false), pid_(&input_, &output_, &setpoint_, 1, 0, 0, DIRECT)
 #ifdef TEST_SLOW_PWM
         , testPWMVal_(0)
 #endif
 {
-    InitInternal(options);
+    Init(options);
 }
 
 void SDC_Motor::Init(const Options &options)
 {
-    pwmApprox_.Init(options.approximationType_, options.loProfile_, options.hiProfile_);
-    InitInternal(options);
-}
+    options_ = options;
 
-void SDC_Motor::InitInternal(const Options &options)
-{
-    maxSpeed_  = options.maxSpeedRPM_*options.encRes_/60000.0;
-    loProfile_ = options.loProfile_;
-    hiProfile_ = options.hiProfile_;
+    if(!pwmApprox_.Init(options.approximationType_, options.loProfile_, options.hiProfile_))
+        options_.hiProfile_.magnitude_ = 0;     // turn approximation off
 
     // Calculate Ki
 
@@ -94,7 +96,7 @@ void SDC_Motor::InitInternal(const Options &options)
     //  RESOLUTION  - encoder resolution per full cycle
     //  RPM         - motor speed (rotations per minute)
     // The equation is assuming that the motor is an ideal integrator, and neglects its inertia and inductance.
-    double A = maxSpeed_ * 3.9216;    // where maxSpeed = RPM*M_RESOLUTION/60000, and 3.9216 == 1000/255
+    double A = options.maxSpeedRPM_ * options.encRes_/15300.0;  // where 15300 = 60*255
 
     // For an ideal integrator, the best Ki choice, to avoid oscillations:
     //  Ki = A*(Kp^2)/(4*(1+A*Kd))
@@ -105,7 +107,7 @@ void SDC_Motor::InitInternal(const Options &options)
 
     pid_.SetOutputLimits(-255,255);
     pid_.SetTunings(options.Kp_, Ki, options.Kd_);
-    pid_.SetSampleTime(hiProfile_.period_);
+    pid_.SetSampleTime(options_.hiProfile_.period_);
 }
 
 void SDC_Motor::Setup()
@@ -188,29 +190,29 @@ bool SDC_Motor::Run()
 #ifdef USE_SLOW_PWM
         int sp = round(output_);
         int absSp = (sp >= 0) ? sp : -sp;
-        if(absSp >= hiProfile_.magnitude_)
+        if(absSp >= options_.hiProfile_.magnitude_)
         {
             pwmState_ = PWM_CONST;
             SetVal(sp);
-            pid_.SetSampleTime(hiProfile_.period_);
+            pid_.SetSampleTime(options_.hiProfile_.period_);
             return true;
         }
-        else if(absSp < loProfile_.value_)
+        else if(absSp < options_.loProfile_.value_)
         {
             pwmState_ = PWM_CONST;
             analogWrite(speedPin_, 0);
-            pid_.SetSampleTime(hiProfile_.period_);
+            pid_.SetSampleTime(options_.hiProfile_.period_);
             return true;
         }
 
         uint8_t magnitude;
         double period;
-        if(absSp < hiProfile_.value_)
+        if(absSp < options_.hiProfile_.value_)
             pwmApprox_.MakeApproximation(absSp, &magnitude, &period);
         else
         {
-            magnitude = hiProfile_.magnitude_;
-            period = hiProfile_.period_;
+            magnitude = options_.hiProfile_.magnitude_;
+            period = options_.hiProfile_.period_;
         }
 
         // set to high
