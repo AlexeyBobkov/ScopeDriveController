@@ -11,8 +11,6 @@
 #include "SDC_Configuration.h"
 //#include "EP_Storage.h"
 
-long ALT_res = 2500*4, AZM_res = 2500*4;                // resolution of telescope encoders
-//long MALT_res = 1000*4, MAZM_res = 1000*4;              // resolution of motor encoders
 volatile long ALT_pos, AZM_pos, MALT_pos, MAZM_pos;     // encoder positions
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -58,16 +56,6 @@ volatile long* SDC_GetAltEncoderPositionPtr()       {return &ALT_pos;}
 volatile long* SDC_GetAzmEncoderPositionPtr()       {return &AZM_pos;}
 volatile long* SDC_GetMotorAltEncoderPositionPtr()  {return &MALT_pos;}
 volatile long* SDC_GetMotorAzmEncoderPositionPtr()  {return &MAZM_pos;}
-
-inline long mymodule (long a, long b) {return a >= 0 ? a%b : b - 1 - ((-a - 1)%b);}
-
-// scope encoder resolutions
-long SDC_GetAltEncoderResolution()                  {return ALT_res;}
-long SDC_GetAzmEncoderResolution()                  {return AZM_res;}
-
-// scope encoder positions in the range (0..resolution-1)
-long SDC_GetAltEncoderPosition()                    {return mymodule(ALT_pos, ALT_res);}
-long SDC_GetAzmEncoderPosition()                    {return mymodule(AZM_pos, AZM_res);}
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // Interrupts

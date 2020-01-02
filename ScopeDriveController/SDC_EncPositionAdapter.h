@@ -43,6 +43,9 @@ public:
     void Init(const Options &options);
     const Options& GetOptions() const {return options_;}
 
+    // scope encoder positions in the range (0..resolution-1)
+    long GetEncoderPosInRange() const;
+
     // call once in setup()
     void Setup();
 

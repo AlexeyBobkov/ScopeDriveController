@@ -49,6 +49,11 @@ void SDC_MotorAdapter::Init(const Options &options)
     pid_.SetOutputLimits(-maxSpeed*options_.scopeToMotor_, maxSpeed*options_.scopeToMotor_);
 }
 
+inline long mymodule (long a, long b) {return a >= 0 ? a%b : b - 1 - ((-a - 1)%b);}
+long SDC_MotorAdapter::GetEncoderPosInRange() const
+{
+    return mymodule(*scopeEncPos_, options_.encRes_);
+}
 
 // call once in setup()
 void SDC_MotorAdapter::Setup()

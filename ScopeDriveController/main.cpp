@@ -92,7 +92,7 @@ SDC_Motor motorAZM (SDC_Motor::Options(M_RESOLUTION,
 //
 // High level PID: control of "ideal motor" using low-accuracy telescope encoders
 //
-SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(SDC_GetAltEncoderResolution(),
+SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(A_RESOLUTION,
                                                       218.9,    // motor-to-scope encoder resolution ratio
                                                       0.6,      // speed deviation factor
                                                       1.0,      // Ki factor for regular movement
@@ -106,7 +106,7 @@ SDC_MotorAdapter adapterALT(SDC_MotorAdapter::Options(SDC_GetAltEncoderResolutio
                                                       1000),    // speed smoothing time, ms
                             SDC_GetAltEncoderPositionPtr(),
                             &motorALT);
-SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(SDC_GetAzmEncoderResolution(),
+SDC_MotorAdapter adapterAZM(SDC_MotorAdapter::Options(A_RESOLUTION,
                                                       177.1,    // motor-to-scope encoder resolution ratio
                                                       0.6,      // speed deviation factor
                                                       1.0,      // Ki factor for regular movement
@@ -255,6 +255,19 @@ static void PollMotor(byte buf[], int, int)
         break;
     }
     Serial.write(&running, 1);
+}
+
+static void GetMotorOrAdapterOptions(byte buf[], int, int)
+{
+    Serial.write(&buf[0], 1);
+    switch(buf[0])
+    {
+    default:
+    case A_ALT: Serial.write((const uint8_t*)&adapterALT.GetOptions(), sizeof(SDC_MotorAdapter::Options)); break;
+    case A_AZM: Serial.write((const uint8_t*)&adapterAZM.GetOptions(), sizeof(SDC_MotorAdapter::Options)); break;
+    case M_ALT: Serial.write((const uint8_t*)&motorALT.GetOptions(), sizeof(SDC_Motor::Options)); break;
+    case M_AZM: Serial.write((const uint8_t*)&motorAZM.GetOptions(), sizeof(SDC_Motor::Options)); break;
+    }
 }
 
 
@@ -557,14 +570,14 @@ static void ProcessSerialCommand(char inchar)
 
     case 'h':
         // Dave Ek's format: report encoder resolutions
-        printHex(SDC_GetAltEncoderResolution());
-        printHex(SDC_GetAzmEncoderResolution());
+        printHex(adapterALT.GetOptions().encRes_);
+        printHex(adapterAZM.GetOptions().encRes_);
         break;
 
     case 'y':
         // Dave Ek's format: report encoder positions
-        printHex(SDC_GetAltEncoderPosition());
-        printHex(SDC_GetAzmEncoderPosition());
+        printHex(adapterALT.GetEncoderPosInRange());
+        printHex(adapterAZM.GetEncoderPosInRange());
         break;
 
 
@@ -612,6 +625,15 @@ static void ProcessSerialCommand(char inchar)
 
     case 'P':   // poll
         SetSerialBuf(1, PollMotor);
+        break;
+
+    case 'O':   // configuration options
+        SetSerialBuf(1, GetMotorOrAdapterOptions);
+        break;
+
+    case 'Z':   // configuration options sizes
+        printHex(sizeof(SDC_Motor::Options));
+        printHex(sizeof(SDC_MotorAdapter::Options));
         break;
 
 #ifdef LOGGING_ON
