@@ -270,6 +270,30 @@ static void GetMotorOrAdapterOptions(byte buf[], int, int)
     }
 }
 
+static void SetMotorOptions(byte buf[], int, int)
+{
+    SDC_Motor::Options *opt = (SDC_Motor::Options*)&buf[1];
+    switch(buf[0])
+    {
+    default:
+    case M_ALT: motorALT.Init(*opt); break;
+    case M_AZM: motorAZM.Init(*opt); break;
+    }
+    Serial.write(&buf[0], 1);
+}
+
+static void SetAdapterOptions(byte buf[], int, int)
+{
+    SDC_MotorAdapter::Options *opt = (SDC_MotorAdapter::Options*)&buf[1];
+    switch(buf[0])
+    {
+    default:
+    case A_ALT: adapterALT.Init(*opt); break;
+    case A_AZM: adapterAZM.Init(*opt); break;
+    }
+    Serial.write(&buf[0], 1);
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////////////
 #ifdef LOGGING_ON
@@ -513,7 +537,7 @@ static uint8_t GetState()
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
-#define SERIAL_BUF_SZ 10
+#define SERIAL_BUF_SZ 64
 static byte serialBuf[SERIAL_BUF_SZ];
 static int serialBufCurr = 0;
 static int serialBufWait = 0;
@@ -629,6 +653,14 @@ static void ProcessSerialCommand(char inchar)
 
     case 'O':   // configuration options
         SetSerialBuf(1, GetMotorOrAdapterOptions);
+        break;
+
+    case 'E':   // set adapter configuration options
+        SetSerialBuf(sizeof(SDC_MotorAdapter::Options) + 1, SetAdapterOptions);
+        break;
+
+    case 'M':   // set motor configuration options
+        SetSerialBuf(sizeof(SDC_Motor::Options) + 1, SetMotorOptions);
         break;
 
     case 'Z':   // configuration options sizes
