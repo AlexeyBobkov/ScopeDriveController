@@ -276,8 +276,8 @@ static void SetMotorOptions(byte buf[], int, int)
     switch(buf[0])
     {
     default:
-    case M_ALT: motorALT.Init(*opt); break;
-    case M_AZM: motorAZM.Init(*opt); break;
+    case M_ALT: motorALT.SetOptions(*opt); break;
+    case M_AZM: motorAZM.SetOptions(*opt); break;
     }
     Serial.write(&buf[0], 1);
 }
@@ -288,8 +288,8 @@ static void SetAdapterOptions(byte buf[], int, int)
     switch(buf[0])
     {
     default:
-    case A_ALT: adapterALT.Init(*opt); break;
-    case A_AZM: adapterAZM.Init(*opt); break;
+    case A_ALT: adapterALT.SetOptions(*opt); break;
+    case A_AZM: adapterAZM.SetOptions(*opt); break;
     }
     Serial.write(&buf[0], 1);
 }

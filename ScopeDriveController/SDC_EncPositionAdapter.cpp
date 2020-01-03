@@ -15,13 +15,44 @@ SDC_MotorAdapter::SDC_MotorAdapter(const Options &options, volatile long *scopeE
     :   scopeEncPos_(scopeEncPos), motor_(motor), running_(false), mt_(NULL), output_(0), lastAdjustPID_(0), speedMode_(STOP),
         pid_(&input_, &output_, &setpoint_, 1.0, 0.0, 0.0, DIRECT)
 {
-    Init(options);
+    SetOptionsInternal(options, false); // options are supposed to be valid here
 }
 
 
-void SDC_MotorAdapter::Init(const Options &options)
+bool SDC_MotorAdapter::ValidateOptions(const Options &options)
 {
-    options_        = options;
+    return options.encRes_ > 0 && options.scopeToMotor_ > 0 && options.deviationSpeedFactor_ > 0 &&
+           options.KiF_ >= 0 && options.KdF_ >= 0 && options.KpFast2F_ >= 0 && options.KpFast3F_ >= 0 && options.diff2_ > 0 && options.diff3_ > 0 &&
+           options.pidPollPeriod_ > 0 && options.adjustPidTmo_ > 0 && options.speedSmoothTime_ >= 0;
+}
+
+bool SDC_MotorAdapter::SetOptionsInternal(const Options &options, bool rejectInvalid)
+{
+    if(running_)
+        return false;
+
+    if(ValidateOptions(options))
+        options_ = options;
+    else
+    {
+        if(rejectInvalid)
+            return false;
+
+        // abnormal use case: set some emergency values
+        options_ = options;
+        options_.encRes_ = 10000;
+        options_.scopeToMotor_ = 200;
+        options_.deviationSpeedFactor_ = 0.5;
+        options_.KiF_ = 0.5;
+        options_.KdF_ = 0;
+        options_.KpFast2F_ = 0.4;
+        options_.KpFast3F_ = 0.7;
+        options_.diff2_ = 5;
+        options_.diff3_ = 15;
+        options_.pidPollPeriod_ = 300;
+        options_.adjustPidTmo_ = 1000;
+        options_.speedSmoothTime_ = 0;
+    }
 
     speedSmooth_    = double(options_.pidPollPeriod_)/double(options_.speedSmoothTime_);
 
@@ -47,6 +78,8 @@ void SDC_MotorAdapter::Init(const Options &options)
 
     double maxSpeed = motor_->GetMaxSpeed() / options_.scopeToMotor_;
     pid_.SetOutputLimits(-maxSpeed*options_.scopeToMotor_, maxSpeed*options_.scopeToMotor_);
+
+    return true;
 }
 
 inline long mymodule (long a, long b) {return a >= 0 ? a%b : b - 1 - ((-a - 1)%b);}

@@ -91,8 +91,9 @@ public:
     };
 
     SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, volatile long *encPos);
-    void Init(const Options &options);
+
     const Options& GetOptions() const {return options_;}
+    bool SetOptions(const Options &options) {return SetOptionsInternal(options, true);}
 
     // call once in setup()
     void Setup();
@@ -127,7 +128,7 @@ private:
     public:
         PWMApproximation() : approximationType_(LINEAR), loProfile_(0, 0, 100), magnitudeCoeff_(1), periodCoeff_(0) {}
         //PWMApproximation(ApproximationType approximationType, const PWMProfile &lp, const PWMProfile &hp) {Init(approximationType, lp, hp);}
-        bool Init(ApproximationType approximationType, const PWMProfile &lp, const PWMProfile &hp);
+        bool Init(ApproximationType approximationType, const PWMProfile &lp, const PWMProfile &hp, bool rejectInvalid);
 
         void MakeApproximation(int absSp, uint8_t *magnitude, double *period);
     };
@@ -165,6 +166,8 @@ private:
     
     double setpoint_, input_, output_;
 
+    static bool ValidateOptions(const Options &options);
+    bool SetOptionsInternal(const Options &options, bool rejectInvalid);
     void DoStop();
     void DoGetPos(double *upos, long *ts);
 };

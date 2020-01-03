@@ -9,7 +9,6 @@
 
 #include "SDC_Encoders.h"
 #include "SDC_Configuration.h"
-//#include "EP_Storage.h"
 
 volatile long ALT_pos, AZM_pos, MALT_pos, MAZM_pos;     // encoder positions
 

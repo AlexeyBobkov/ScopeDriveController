@@ -40,8 +40,9 @@ public:
     };
 
     SDC_MotorAdapter(const Options &options, volatile long *scopeEncPos, SDC_MotorItf *motor);
-    void Init(const Options &options);
+
     const Options& GetOptions() const {return options_;}
+    bool SetOptions(const Options &options) {return SetOptionsInternal(options, true);}
 
     // scope encoder positions in the range (0..resolution-1)
     long GetEncoderPosInRange() const;
@@ -87,6 +88,8 @@ private:
     SpeedMode speedMode_;
     PID pid_;
 
+    static bool ValidateOptions(const Options &options);
+    bool SetOptionsInternal(const Options &options, bool rejectInvalid);
     void UpdateSpeed(double speed);
     void ReInitializePID(SpeedMode newMode, double speed, double lastError, double Kp, double Ki, double Kd);
     void AdjustPID(double diff, long ts);

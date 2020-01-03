@@ -22,13 +22,14 @@
 
 
 ///////////////////////////////////////////////////////////////////////////////////////
-bool SDC_Motor::PWMApproximation::Init(ApproximationType approximationType, const PWMProfile &lp, const PWMProfile &hp)
+bool SDC_Motor::PWMApproximation::Init(ApproximationType approximationType, const PWMProfile &lp, const PWMProfile &hp, bool rejectInvalid)
 {
     double valDiff = (double)hp.value_ - (double)lp.value_;
     if(lp.magnitude_ > 255 || hp.magnitude_  > lp.magnitude_ || hp.value_ > hp.magnitude_ || lp.value_ >= hp.value_ || !lp.period_ || !hp.period_ || lp.period_ < hp.period_)
     {
         // incorrect values
-        *this = PWMApproximation();
+        if(!rejectInvalid)
+            *this = PWMApproximation();
         return false;
     }
 
@@ -78,15 +79,45 @@ SDC_Motor::SDC_Motor(const Options &options, uint8_t dirPin, uint8_t speedPin, v
         , testPWMVal_(0)
 #endif
 {
-    Init(options);
+    SetOptionsInternal(options, false); // options are supposed to be valid here
 }
 
-void SDC_Motor::Init(const Options &options)
+bool SDC_Motor::ValidateOptions(const Options &options)
 {
-    options_ = options;
+    return options.encRes_ > 0 && options.maxSpeedRPM_ > 0 && options.maxSpeedRPM_ < 500 && options.Kp_ > 0 && options.KiF_ >= 0 && options.Kd_ >= 0;
+}
 
-    if(!pwmApprox_.Init(options.approximationType_, options.loProfile_, options.hiProfile_))
-        options_.hiProfile_.magnitude_ = 0;     // turn approximation off
+bool SDC_Motor::SetOptionsInternal(const Options &options, bool rejectInvalid)
+{
+#ifndef TEST_SLOW_PWM
+    if(running_)
+#else
+    if(running_ || testPWMVal_ != 0)
+#endif
+        return false;
+
+    bool approxOk = pwmApprox_.Init(options.approximationType_, options.loProfile_, options.hiProfile_, rejectInvalid);
+    if(rejectInvalid)
+    {
+        if(!approxOk || !ValidateOptions(options))
+            return false;
+        options_ = options;
+    }
+    else
+    {
+        options_ = options;
+        if(!ValidateOptions(options))
+        {
+            // abnormal use case: set emergency values
+            options_.encRes_ = 4000;
+            options_.maxSpeedRPM_ = 30;
+            options_.Kp_ = 0.25;
+            options_.KiF_ = 0;
+            options_.Kd_ = 0;
+        }
+        if(!approxOk)
+            options_.hiProfile_.magnitude_ = 0;     // turn approximation off
+    }
 
     // Calculate Ki
 
@@ -108,6 +139,8 @@ void SDC_Motor::Init(const Options &options)
     pid_.SetOutputLimits(-255,255);
     pid_.SetTunings(options.Kp_, Ki, options.Kd_);
     pid_.SetSampleTime(options_.hiProfile_.period_);
+
+    return true;
 }
 
 void SDC_Motor::Setup()
