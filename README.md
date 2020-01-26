@@ -1,2 +1,2 @@
 # ScopeDriveController
-Code for Arduino supporting my GoTo drive for telescope and/or Alt-Azm Encoders
+Code for Arduino (Atmel Studio project) supporting my GoTo drive for telescope and/or Alt-Azm Encoders
