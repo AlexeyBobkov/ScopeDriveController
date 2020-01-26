@@ -61,11 +61,16 @@ bool SDC_MotorAdapter::SetOptionsInternal(const Options &options, bool rejectInv
 
     Kp_ = options_.deviationSpeedFactor_ * normalSpeed * options_.scopeToMotor_;
     if(Kp_ > 1/A)
+    {
         Kp_ = 1/A;
-
-    Kd_ = options_.KdF_ * options_.deviationSpeedFactor_ * normalSpeed * options_.scopeToMotor_;
+        options_.deviationSpeedFactor_ = Kp_/(normalSpeed * options_.scopeToMotor_);
+    }
+    Kd_ = options_.KdF_ * Kp_;
     if(Kd_ > 1/A)
+    {
         Kd_ = 1/A;
+        options_.KdF_ = Kd_/Kp_;
+    }
 
     Ki_ = options_.KiF_ * (Kp_ * Kp_) * A / (4 * (1 + A * Kd_));    // optimal Ki = A*Kp^2/(4*(1 + A*Kd))
 
