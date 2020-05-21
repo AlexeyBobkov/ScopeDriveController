@@ -39,14 +39,29 @@ static void printHex2(unsigned long v)
     Serial.write(buf, 4);
 }
 
+enum SerialConnectionState
+{
+    SERIAL_CONNECTED,
+    SERIAL_WAIT_TMO,
+    SERIAL_DISCONNECTED
+};
+static SerialConnectionState gSerialConnectionState = SERIAL_DISCONNECTED;
+static unsigned long guSerialTmoStart = 0;
+
 class IntlkMotionType : public SDC_MotionType
 {
 public:
-    virtual bool    CanMove(const SDC_MotorItf*) const              {return digitalRead(SWITCH_IPIN) == 0;}
+    virtual bool    CanMove(const SDC_MotorItf*) const              {return gSerialConnectionState != SERIAL_DISCONNECTED && digitalRead(SWITCH_IPIN) == 0;}
     virtual void    MotorStarted(SDC_MotorItf*)                     {}
     virtual void    MotorStopped(SDC_MotorItf*, bool byStopCommand) {if(!byStopCommand) MakeSound(50);}
 };
 IntlkMotionType intlk;
+
+//
+// Serial connection timeout, ms
+//
+unsigned long guSerialConnectionTmo = 10000;
+
 
 //
 // Low level PID: implementation of "ideal motor", using motor encoders
@@ -125,6 +140,8 @@ uint8_t uSessionId;
 
 void setup()
 {
+    gSerialConnectionState = SERIAL_DISCONNECTED;
+
     //pinMode(SOUND_OPIN, OUTPUT);
 
     pinMode(SWITCH_IPIN, INPUT);
@@ -182,6 +199,14 @@ static SDC_MotorItf* GetMotor(byte b)
     case M_ALT: return &motorALT;
     case M_AZM: return &motorAZM;
     }
+}
+
+static void SetSerialConnectionTmo(byte buf[], int, int)
+{
+    guSerialConnectionTmo = (unsigned long)((uint32_t(buf[3]) << 24) + (uint32_t(buf[2]) << 16) + (uint32_t(buf[1]) << 8) + uint32_t(buf[0]));
+    if(guSerialConnectionTmo > 25000)
+        guSerialConnectionTmo = 25000;
+    printHex2(guSerialConnectionTmo);
 }
 
 static void StartMotor(byte buf[], int, int)
@@ -689,6 +714,10 @@ static void ProcessSerialCommand(char inchar)
         break;
 #endif
 
+    case 'I':
+        SetSerialBuf(4, SetSerialConnectionTmo);
+        break;
+
     default:
         break;
     }
@@ -714,11 +743,33 @@ void loop()
 
     // serial
     static int safeSkip = 0;
-    if(Serial.available() && (safe1 || ++safeSkip > 10))
+    if(Serial.available())
     {
-        safeSkip = 0;
-        char inchar = Serial.read();
-        ProcessSerialCommand(inchar);
+        gSerialConnectionState = SERIAL_CONNECTED;
+        if(safe1 || ++safeSkip > 10)
+        {
+            safeSkip = 0;
+            char inchar = Serial.read();
+            ProcessSerialCommand(inchar);
+        }
+    }
+    else
+    {
+        switch(gSerialConnectionState)
+        {
+        case SERIAL_CONNECTED:
+            gSerialConnectionState = SERIAL_WAIT_TMO;
+            guSerialTmoStart = millis();
+            break;
+
+        case SERIAL_WAIT_TMO:
+            if(millis() - guSerialTmoStart - guSerialConnectionTmo < ULONG_MAX/2)
+                gSerialConnectionState = SERIAL_DISCONNECTED;
+            break;
+
+        default:
+            break;
+        }
     }
 }
 
