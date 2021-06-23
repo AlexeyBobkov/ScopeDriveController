@@ -270,7 +270,9 @@ bool SDC_MotorAdapter::SetNextPos(double upos, long ts, bool reset, Ref *ref)
 
         if(ref)
             *ref = Ref(refScopePos_, ts_);
-        UpdateSpeed((upos - refScopePos_)/double(ts - ts_));
+        double speed = (upos - refScopePos_)/double(ts - ts_);
+        pid_.Boost((speed - speed_)*options_.scopeToMotor_);
+        UpdateSpeed(speed);
         return true;
     }
 

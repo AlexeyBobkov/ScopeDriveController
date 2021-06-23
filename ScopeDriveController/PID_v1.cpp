@@ -212,6 +212,21 @@ void PID::SetControllerDirection(int Direction)
     }
 }
 
+/* Boost(...)******************************************************************
+ *	add a value to current integral sum to immediately shift output
+ ******************************************************************************/
+void PID::Boost(double Diff)
+{
+    if(inAuto)
+    {
+        outputSum += Diff;
+        if(outputSum > outMax)
+            outputSum = outMax;
+        else if(outputSum < outMin)
+            outputSum = outMin;
+    }
+}
+
 /* Status Funcions*************************************************************
  * Just because you set the Kp=-1 doesn't mean it actually happened.  these
  * functions query the internal state of the PID.  they're here for display
