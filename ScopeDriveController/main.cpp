@@ -188,10 +188,17 @@ static void ReportCapabilities()
 #define A_AZM   1       // command for azm adapter
 #define M_ALT   2       // command for alt motor (debug only)
 #define M_AZM   3       // command for azm motor (debug only)
+#define MOTOR_MASK 3    // mask for motor command
 
-static SDC_MotorItf* GetMotor(byte b)
+#define A_BOOST 0x80    // boost mode flag
+#define FLAGS_MASK 0x80 // flags mask
+
+static SDC_MotorItf* GetMotor(byte b, byte *flags = NULL)
 {
-    switch(b)
+    if(flags)
+        *flags = (b & FLAGS_MASK);
+
+    switch(b & MOTOR_MASK)
     {
     default:
     case A_ALT: return &adapterALT;
@@ -239,14 +246,14 @@ static void SetMotorSpeed(byte buf[], int, int)
 
 static void NextMotorPosition(byte buf[], int, int)
 {
-    byte *p = buf;
-    SDC_MotorItf *motor = GetMotor(*p++);
+    byte *p = buf, flags = 0;
+    SDC_MotorItf *motor = GetMotor(*p++, &flags);
 
     double upos = *((double*)p);
     long ts   = long((uint32_t(p[7]) << 24) + (uint32_t(p[6]) << 16) + (uint32_t(p[5]) << 8) + uint32_t(p[4]));
 
     SDC_MotorItf::Ref ref;
-    motor->SetNextPos(upos, ts, false, &ref);
+    motor->SetNextPos(upos, ts, (flags & A_BOOST) ? FLG_BOOST_SPEED : 0, &ref);
     printHex2(round(ref.upos_));
     printHex2(ref.ts_);
 }

@@ -25,6 +25,9 @@ public:
     virtual void    MotorStopped(SDC_MotorItf *m, bool byStopCommand)   = 0;    // action on motor stopped
 };
 
+// flags for SetSpeed and SetNextPos
+#define FLG_BOOST_SPEED     1
+
 class SDC_MotorItf
 {
 public:
@@ -49,7 +52,7 @@ public:
                         SDC_MotionType *mt,                 // motion callback
                         Ref *ref = NULL) = 0;               // starting position and timestamp
     virtual bool SetSpeed(double speed, Ref *ref = NULL);   // speed is in encoder units/ms
-    virtual bool SetNextPos(double upos, long ts, bool reset, Ref *ref = NULL) = 0;
+    virtual bool SetNextPos(double upos, long ts, int flags, Ref *ref = NULL) = 0;
     virtual void Stop() = 0;
 };
 
@@ -111,7 +114,7 @@ public:
     double GetSpeed() const {return speed_;}
     bool Start (double speed, SDC_MotionType *mt, Ref *ref);
     bool SetSpeed(double speed, Ref *ref);
-    bool SetNextPos(double upos, long ts, bool reset, Ref *ref);
+    bool SetNextPos(double upos, long ts, int flags, Ref *ref);
     void Stop();
 
 #ifdef TEST_SLOW_PWM

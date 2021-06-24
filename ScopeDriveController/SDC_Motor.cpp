@@ -366,7 +366,7 @@ bool SDC_Motor::SetSpeed(double speed, Ref *ref)
     return true;
 }
 
-bool SDC_Motor::SetNextPos(double upos, long ts, bool reset, Ref *ref)
+bool SDC_Motor::SetNextPos(double upos, long ts, int flags, Ref *ref)
 {
     if(!running_)
         return false;

@@ -63,7 +63,7 @@ public:
     double GetSpeed() const {return speed_;}
     bool Start (double speed, SDC_MotionType *mt, Ref *ref);
     bool SetSpeed(double speed, Ref *ref);
-    bool SetNextPos(double upos, long ts, bool reset, Ref *ref);
+    bool SetNextPos(double upos, long ts, int flags, Ref *ref);
     void Stop();
 
     // MotionType

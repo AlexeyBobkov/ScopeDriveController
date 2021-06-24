@@ -257,7 +257,7 @@ bool SDC_MotorAdapter::SetSpeed(double speed, Ref *ref)
     return true;
 }
 
-bool SDC_MotorAdapter::SetNextPos(double upos, long ts, bool reset, Ref *ref)
+bool SDC_MotorAdapter::SetNextPos(double upos, long ts, int flags, Ref *ref)
 {
     if(!running_)
         return false;
@@ -271,7 +271,8 @@ bool SDC_MotorAdapter::SetNextPos(double upos, long ts, bool reset, Ref *ref)
         if(ref)
             *ref = Ref(refScopePos_, ts_);
         double speed = (upos - refScopePos_)/double(ts - ts_);
-        pid_.Boost((speed - speed_)*options_.scopeToMotor_);
+        if(flags & FLG_BOOST_SPEED)
+            pid_.Boost((speed - speed_)*options_.scopeToMotor_);
         UpdateSpeed(speed);
         return true;
     }
