@@ -271,7 +271,7 @@ bool SDC_MotorAdapter::SetNextPos(double upos, long ts, int flags, Ref *ref)
         if(ref)
             *ref = Ref(refScopePos_, ts_);
         double speed = (upos - refScopePos_)/double(ts - ts_);
-        if(flags & FLG_BOOST_SPEED)
+        if((flags & FLG_BOOST_SPEED) != 0 && speedMode_ == REGULAR)
             pid_.Boost((speed - speed_)*options_.scopeToMotor_);
         UpdateSpeed(speed);
         return true;
